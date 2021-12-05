@@ -1,0 +1,33 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+export PYBUILD_BEFORE_TEST=rm -f {dir}/tests/functional/u/unused_typing_imports.py {dir}/tests/functional/m/missing_final_newline.py
+# disable until https://github.com/PyCQA/pylint/issues/5246 is fixed
+export PYBUILD_TEST_ARGS=-k 'not test_pkginfo and not test_do_not_import_files_from_local_directory and not test_import_plugin_from_local_directory_if_pythonpath_cwd and not test_can_list_directories_without_dunder_init and not test_fail_on_exit_code'
+export PYBUILD_AFTER_TEST=rm -rf {dir}/.pytest_cache
+export PYBUILD_BEFORE_INSTALL=rm -rf {build_dir}/classes.dot
+
+%:
+	dh $@ --buildsystem pybuild --with python3,sphinxdoc
+
+override_dh_auto_build:
+	dh_auto_build
+	PATH=$(CURDIR):$$PATH $(MAKE) -C doc html PYTHONPATH=$(CURDIR) PYTHON=python3
+
+override_dh_installchangelogs:
+	dh_installchangelogs -i ChangeLog
+
+override_dh_compress:
+	dh_compress -i -X.py -X.ini -X.xml -Xtest
+
+override_dh_installexamples:
+	dh_installexamples -ppylint-doc examples/*
+
+override_dh_installdocs:
+	dh_installdocs -A README.rst
+	dh_installdocs -ppylint-doc doc/_build/html
+
+override_dh_missing:
+	dh_missing --fail-missing

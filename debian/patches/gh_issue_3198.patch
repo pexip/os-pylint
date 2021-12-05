@@ -1,0 +1,10 @@
+--- a/tests/lint/unittest_lint.py
++++ b/tests/lint/unittest_lint.py
+@@ -879,6 +879,7 @@ def test_filename_with__init__(init_lint
+     assert len(messages) == 0
+ 
+ 
++@pytest.mark.skip(reason="https://github.com/PyCQA/pylint/issues/3198")
+ def test_by_module_statement_value(init_linter: PyLinter) -> None:
+     """Test "statement" for each module analyzed of computed correctly."""
+     linter = init_linter

@@ -1,0 +1,19 @@
+pylint (0.24.0-1) unstable; urgency=low
+
+  Ids of logging and string_format checkers have been changed:
+    logging: 65 -> 12, string_format: 99 -> 13
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 31 Jul 2011 00:35:59 +0200
+
+pylint (0.21.1-1) unstable; urgency=low
+
+  With version 0.21.0, pylint introduces and incompatible change with
+  command-line parameters.
+
+  Please check the upstream changelog [1] and compare against it the way you're
+  used to execute pylint.
+
+  [1] /usr/share/doc/pylint/changelog.gz
+
+ -- Sandro Tosi <morph@debian.org>  Sat, 12 Jun 2010 09:15:12 +0200
+

@@ -1,0 +1,27 @@
+Description: Avoid running pip while building documentation
+ There is no Internet access while building the package. Therefore calling pip
+ will fail.
+Author: Benjamin Drung <benjamin.drung@profitbricks.com>
+Bug: https://github.com/PyCQA/pylint/issues/2517
+
+--- a/doc/Makefile
++++ b/doc/Makefile
+@@ -4,7 +4,6 @@
+ # You can set these variables from the command line.
+ SPHINXOPTS    =
+ SPHINXBUILD   = sphinx-build
+-PIP           = pip
+ PAPER         =
+ BUILDDIR      = _build
+ PYTHON        = /usr/bin/env python
+@@ -42,10 +41,6 @@ clean:
+ 	-rm -f extensions.rst
+ 
+ html: features.rst extensions.rst
+-	@echo
+-	@echo "Install dependencies"
+-	$(PIP) install python-docs-theme
+-	@echo "Finished installing dependencies"
+ 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
+ 	@echo
+ 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."

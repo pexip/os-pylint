@@ -1,0 +1,1101 @@
+pylint (2.12.2-1) unstable; urgency=medium
+
+  * New upstream release; Closes: #1001137
+  * debian/control
+    - bump versioned b-d on astroid to >= 2.9.0
+    - add python3-git to b-d, needed by tests
+    - bump Standards-Version to 4.6.0.1 (no changes needed)
+  * debian/copyright
+    - update upstream copyright notices
+  * debian/patches/gh_issue_3198.patch
+    - refresh patch
+  * drop transitional package pylint3, no longer needed
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 05 Dec 2021 02:02:10 -0500
+
+pylint (2.11.1-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/watch
+    - track github releases
+  * debian/copyright
+    - update upstream copyright notices
+  * debian/control
+    - bump versioned b-d on astroid to >= 2.8.0
+    - add typing-extensions to b-d, needed to build package
+    - merge b-d and b-d-i
+    - add platformdirs to b-d, needed to build doc
+  * debian/patches/gh_issue_3198.patch
+    - refresh patch onto new upstream code
+  * debian/rules
+    - temporarily exclude some failing tests
+    - dont install manpages, they've been removed upstream
+
+ -- Sandro Tosi <morph@debian.org>  Wed, 03 Nov 2021 00:33:18 -0400
+
+pylint (2.7.2-3) unstable; urgency=medium
+
+  * source only upload
+
+ -- Sandro Tosi <morph@debian.org>  Wed, 16 Jun 2021 21:12:44 -0400
+
+pylint (2.7.2-2) unstable; urgency=medium
+
+  * Team upload
+  * debian/control
+    - Introduce pylint3 trantional package for smooth upgrade (Closes: #968897)
+
+ -- Hideki Yamane <henrich@debian.org>  Mon, 14 Jun 2021 23:03:38 +0900
+
+pylint (2.7.2-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/control
+    - bump b-d on astroid to >= 2.5.1
+    - bump Standards-Version to 4.5.1 (no changes needed)
+  * debian/copyright
+    - update upstream copyright notices
+  * debian/watch
+    - bump version to 4
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 28 Feb 2021 18:06:57 -0500
+
+pylint (2.7.1-1) unstable; urgency=medium
+
+  [ Ondřej Nový ]
+  * d/control: Update Vcs-* fields with new Debian Python Team Salsa
+    layout.
+
+  [ Sandro Tosi ]
+  * New upstream release; Closes: Closes: #973168
+  * Use the new Debian Python Team contact name and address
+  * debian/copyright
+    - update upstream copyright notices
+    - extend packaging copyright years
+
+ -- Sandro Tosi <morph@debian.org>  Wed, 24 Feb 2021 00:12:21 -0500
+
+pylint (2.6.0-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/copyright
+    - update upstream copyright notices
+  * debian/patches/3725.patch
+    - drop patch, released upstream
+  * debian/control
+    - run wrap-and-sort
+
+ -- Sandro Tosi <morph@debian.org>  Sat, 19 Sep 2020 23:18:39 -0400
+
+pylint (2.5.3-2) unstable; urgency=medium
+
+  [ Gianfranco Costamagna ]
+  * debian/patches/3725.patch:
+    - cherry-pick and adapt upstream proposed fix for new isort; Closes: #966131
+
+  [ Tristan Seligmann ]
+  * Fix substvars.
+  * Use secure URI in Homepage field.
+  * Set upstream metadata fields: Bug-Database, Bug-Submit, Repository,
+    Repository-Browse.
+  * Update standards version to 4.5.0, no changes needed.
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 02 Aug 2020 22:38:19 -0400
+
+pylint (2.5.3-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/copyright
+    - extend packaging copyright years
+    - (semi-automatic) update upstream copyright information
+  * debian/control
+    - bump versioned dep on astroid to >= 2.4.0
+    - add new b-d toml
+    - add pytest_benchmark to b-d and mark other pytest b-d as nocheck
+    - bump compat to 13
+  * debian/patches/*
+    - refresh, drop patches
+  * debian/rules
+    - remove spurious artifact called classes.dot
+
+ -- Sandro Tosi <morph@debian.org>  Tue, 21 Jul 2020 02:18:14 -0400
+
+pylint (2.4.4-2) unstable; urgency=medium
+
+  * debian/control
+    - Breaks+Replaces+Provides pylint3; Closes: #940012, #940917
+
+ -- Sandro Tosi <morph@debian.org>  Wed, 11 Dec 2019 15:20:49 -0500
+
+pylint (2.4.4-1) unstable; urgency=medium
+
+  [ Ondřej Nový ]
+  * Bump Standards-Version to 4.4.1.
+
+  [ Sandro Tosi ]
+  * New upstream release; Closes: #944987
+  * debian/control
+    - add python3-docs-theme to b-d (doc) and bump astroid version
+  * debian/copyright
+    - update upstream copyright info
+    - extend packaging copyright years
+  * debian/patches/revert-documentation-theme.patch
+    - drop, no longer needed
+  * debian/patches/3d8e0b39f2c41e50c664847a3397c60ee883efd4.patch
+    - fix documentation build
+  * debian/rules
+    - simplify how we setup/teardown tests
+  * debian/patches/gh_issue_3198.patch
+    - skip failing test
+  * debian/pylint.lintian-overrides
+    - remove overrides, no longer needed
+
+ -- Sandro Tosi <morph@debian.org>  Thu, 21 Nov 2019 12:31:56 -0500
+
+pylint (2.2.2-4) unstable; urgency=medium
+
+  * debian/control
+    - dont make pylint conflict with pylint3, until all packages have removed
+      their deps to `pylint3`; Closes: #940012
+
+ -- Sandro Tosi <morph@debian.org>  Fri, 13 Sep 2019 22:50:25 -0400
+
+pylint (2.2.2-3) unstable; urgency=medium
+
+  * debian/control
+    - add Breaks+Replaces: pylint (<< 2) for -doc; Closes: #938955
+  * restore proper installation of pylint.el (lost during the pylint-pylint2 duo
+    source existance); Closes: #939524
+
+ -- Sandro Tosi <morph@debian.org>  Thu, 05 Sep 2019 23:40:23 -0400
+
+pylint (2.2.2-2) unstable; urgency=medium
+
+  [ Ondřej Nový ]
+  * Use debhelper-compat instead of debian/compat.
+  * Bump Standards-Version to 4.4.0.
+
+  [ Sandro Tosi ]
+  * switch back from pylint3 to pylint
+
+ -- Sandro Tosi <morph@debian.org>  Mon, 26 Aug 2019 18:24:34 -0400
+
+pylint (2.2.2-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/copyright
+    - update upstream copyright notices
+  * debian/control
+    - bump Standards-Version to 4.3.0 (no changes needed)
+  * drop doc_makefile_python3.patch, use PYTHON in d/rules
+  * debian/patches
+    - drop add-pytest.ini.patch, refresh
+
+ -- Sandro Tosi <morph@debian.org>  Wed, 26 Dec 2018 11:14:27 -0500
+
+pylint (2.1.1-2) unstable; urgency=medium
+
+  * Team upload.
+  * Set Rules-Requires-Root:no.
+  * Install the test files again, as they are needed by some packages.
+  * Mark pylint-doc as Multi-Arch:foreign (from the m-a hinter).
+  * Add some Breaks:  Closes: #909650
+    + python3-pylint-django (<< 2.0)
+    + python3-pylint-plugin-utils (<< 0.4)
+    + python3-pytest-pylint (<< 0.10)
+  * Use "byte compile exception patterns" feature to exclude tests from
+    byte-compiling, instead of shipping a manual postinst file.
+    Thanks to Piotr Ożarowski for proposing this solution!
+  * Override some false positive lintian tags due to the tests files.
+
+ -- Mattia Rizzolo <mattia@debian.org>  Wed, 26 Sep 2018 15:54:09 +0200
+
+pylint (2.1.1-1) unstable; urgency=medium
+
+  [ Benjamin Drung ]
+  * Team upload.
+  * New upstream release.
+    - Support Python 3.7 (Closes: #909490, LP: #1785080)
+  * debian/patches:
+    - Add pytest.ini (missing in the release tarball)
+    - Avoid running pip while building documentation
+    - Revert HTML documentation theme to 'nature' since the
+      'python_docs_theme' is not packaged in Debian yet
+  * Switch to debhelper 11
+  * Drop python2 package, built from the pylint2 source package
+  * Use pybuild instead of distutils
+  * Do not install pylint's test suite and pre-compile pylint again
+  * Bump Standards-Version to 4.2.1
+
+  [ Ondřej Nový ]
+  * d/changelog: Remove trailing whitespaces
+
+ -- Benjamin Drung <benjamin.drung@profitbricks.com>  Tue, 25 Sep 2018 14:30:52 +0200
+
+pylint (1.9.2-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/watch
+    - scan for versions containing only numbers and dots
+  * debian/copyright
+    - update upstream files copyright notices
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 10 Jun 2018 22:07:13 -0400
+
+pylint (1.8.4-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/patches/0002-Make-the-build-reproducible.patch
+    - make the build reproducible; patch by Chris Lamb; Closes: #894607
+  * debian/control
+    - bump Standards-Version to 4.1.4 (no changes needed)
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 13 May 2018 20:17:22 -0400
+
+pylint (1.8.3-1) unstable; urgency=medium
+
+  [ Ondřej Nový ]
+  * d/copyright: Use https protocol in Format field
+  * d/watch: Use https protocol
+
+  [ Sandro Tosi ]
+  * New upstream release; #891176
+  * debian/source/options
+    - ignore missing .eggs folder; patch by Joseph Herlant; Closes: #894224
+  * debian/copyright
+    - extend packaging copyright years
+  * debian/rules
+    - re-enable tests installation, there's no reason not to; Closes: #891146
+  * debian/control
+    - bump Standards-Version to 4.1.3 (no changes needed)
+  * debian/*.postinst
+    - do not pre-compile pylint; test directory contains intentionally broken
+      files, but py{3,}compile would try to build them anyway, failing to
+      install the package; dh_python* doesnt provide a sane way to selectively
+      disable only the test dir, so let's skip entirely the pre-build step
+
+ -- Sandro Tosi <morph@debian.org>  Tue, 27 Mar 2018 23:14:47 -0400
+
+pylint (1.8.1-1) unstable; urgency=medium
+
+  * New upstream release; Closes: #885965
+  * debian/copyright
+    - auto-generate updated upstream copyright notices
+  * debian/patches/reproducible_build.patch
+    - drop, merged upstream
+  * debian/rules
+    - dont fail if tests fail; Closes: #887818
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 21 Jan 2018 17:26:49 -0500
+
+pylint (1.7.4-2) unstable; urgency=medium
+
+  * debian/patches/reproducible_build.patch
+    - make the build reproducible; patch by Chris Lamb; Closes: #883913
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 10 Dec 2017 09:18:29 -0500
+
+pylint (1.7.4-1) unstable; urgency=medium
+
+  [ Michael Hudson-Doyle ]
+  * New upstream release; Closes: #868820, #827139
+  * debian/control
+    - Update versions of build-depends-indep on astroid.
+    - Add pytest and pytest-runner to build-depends-indep.
+    - Manually add dependencies missed by dh-python thanks to bug #834133
+  * d/rules:
+    - Run the tests via pytest not unittest discover (which no longer finds the
+    tests), and do not ignore the exit code when doing so.
+
+  [ Sandro Tosi ]
+  * debian/control
+    - add logilab-common to b-d and deps
+    - bump Standards-Version to 4.1.2 (no changes needed)
+    - use python3-sphinx to build doc
+    - add setuptools to bin pkgs deps
+  * debian/copyright
+    - update upstream copyright notice
+    - update single files specific copyright notices
+  * pylint-gui has been removed upstream
+  * debian/patches/doc_makefile_python3.patch
+    - build doc extensions with python3
+
+ -- Sandro Tosi <morph@debian.org>  Thu, 07 Dec 2017 21:23:07 -0500
+
+pylint (1.6.5-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/copyright
+    - update upstream copyright
+    - extend packaging copyright years
+  * debian/control
+    - remove outdated XS-Python-Version field
+    - add isort to b-d and depends, needed by new code
+    - add mccabe to b-d and suggests, needed by new code
+    - add backports.functools to b-d and depends, needed by new code
+  * debian/copyright
+    - extend packaging copyright years
+    - generate all the updated copyright notices for upstream files
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 22 Jan 2017 14:05:37 -0500
+
+pylint (1.5.6-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Sandro Tosi <morph@debian.org>  Thu, 16 Jun 2016 20:43:22 +0100
+
+pylint (1.5.5-1) unstable; urgency=medium
+
+  * New upstream release; Closes: #806431
+  * debian/control
+    - switch Vcs-Browser to HTTPS
+    - b-d on python-all
+    - depends on astroid >= 1.4.5
+    - bump Standards-Version to 3.9.8 (no changes needed)
+
+ -- Sandro Tosi <morph@debian.org>  Mon, 25 Apr 2016 20:17:44 +0100
+
+pylint (1.5.2-1) unstable; urgency=medium
+
+  * New upstream release; Closes: #790905
+  * debian/control
+    - bump versioned depends of python-astroid to 1.4.1
+    - drop deps on logilab-common, it is no longer required
+  * debian/copyright
+    - extend packaging copyright years
+    - update for new upstream code
+  * Fix build with multiple supported Python versions; patch by Dmitry Shachnev;
+    Closes: #802126
+  * debian/rules
+    - install README.rst (README was renamed)
+    - adapt unittests execution to new upstream code
+  * debian/pylint.emacsen-startup
+    - autoload key-bindings and menu-items; patch by Aaron M. Ucko;
+      Closes: #799728
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 03 Jan 2016 14:39:35 +0000
+
+pylint (1.4.4-1) unstable; urgency=medium
+
+  * New upstream release
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 02 Aug 2015 01:21:41 +0100
+
+pylint (1.4.3-1) experimental; urgency=medium
+
+  * New upstream release
+  * debian/control
+    - bump deps on astroid to at least version 1.3.6
+  * debian/patches/*
+    - dropped, merged upstream
+
+ -- Sandro Tosi <morph@debian.org>  Wed, 08 Apr 2015 18:01:36 +0100
+
+pylint (1.4.1-2) experimental; urgency=medium
+
+  * Provide py3k package, adapted from Ubuntu packaging; Closes: #606165
+  * build doc at build time and provide a -doc package
+  * debian/{patches/build_doc.patch, rules}
+    - use the built code instead of the system-wide to build doc
+  * debian/rules
+    - run tests at build time; Closes: #575686
+  * debian/pylint.emacsen*
+    - improve Emacs integration; thanks a lot to Agustin Martin for the patches;
+      Closes: #735743
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 01 Mar 2015 18:56:29 +0000
+
+pylint (1.4.1-1) experimental; urgency=medium
+
+  * New upstream release; Closes: #773156
+  * debian/watch
+    - use the PyPI redirector
+  * debian/control
+    - add six to deps and b-d
+    - bump versioned depends of python-astroid to 1.3.3
+  * debian/copyright
+    - update to new upstream code
+    - extend packaging copyright years
+  * debian/patches/*
+    - drop patches, now are part of the upstream release
+  * debian/{control, source/format}
+    - switch to 3.0 (quilt) source format
+  * debian/rules
+    - remove --with quilt
+
+ -- Sandro Tosi <morph@debian.org>  Fri, 06 Feb 2015 19:50:15 +0000
+
+pylint (1.3.1-3) unstable; urgency=medium
+
+  * debian/patches/f4dcd0bd455451e3f358f7171990317b10436055.patch
+    - fix pylint integration with emacs; thanks to Guido Günther for the report;
+      Closes: #778890
+
+ -- Sandro Tosi <morph@debian.org>  Sat, 28 Feb 2015 20:44:14 +0000
+
+pylint (1.3.1-2) unstable; urgency=medium
+
+  * debian/patches/5733254372edb1df9f72f72c6733608405a99a40.patch
+    - backport of --unsafe-load-any-extension and --extension-pkg-whitelist to
+      be able to run pylint even on third-party extensions (and not only on
+      Standard Library ones); Closes: #772018
+  * debian/{control,rules}
+    - add quilt to apply the patch
+  * debian/control
+    - tighten dep on python-astroid to select the version with the changes
+      needed to fix #772018
+
+ -- Sandro Tosi <morph@debian.org>  Wed, 10 Dec 2014 19:42:55 +0000
+
+pylint (1.3.1-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/rules
+    - force execution of test suite
+  * debian/control
+    - bump version of astroid to minimum 1.2.1
+    - bump Standards-Version to 3.9.6 (no changes needed)
+    - add dh-python to b-d
+
+ -- Sandro Tosi <morph@debian.org>  Thu, 06 Nov 2014 23:53:16 +0000
+
+pylint (1.3.0-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/watch
+    - updated to handle Zip file format too
+  * debian/control
+    - bump python-astroid dependencies to 1.2.0 at least
+    - fix spelling error in short description
+  * debian/copyright
+    - add GPL-2+ licence stanza
+
+ -- Sandro Tosi <morph@debian.org>  Sat, 09 Aug 2014 17:15:37 +0100
+
+pylint (1.2.1-1) unstable; urgency=medium
+
+  * New upstream release; Closes: #735072
+  * debian/copyright
+    - update upstream copyright years
+    - updated some tests files licensing
+  * debian/control
+    - tighten dep on astroid, as requesed by upstream code
+    - switch me to Maintainer (team to Uploaders)
+
+ -- Sandro Tosi <morph@debian.org>  Mon, 12 May 2014 22:15:42 +0200
+
+pylint (1.1.0-1) unstable; urgency=low
+
+  * New upstream release
+  * debian/pylint.docs
+    - don't install doc (as provided by the tarball)
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 12 Jan 2014 02:38:03 +0100
+
+pylint (1.0.0-1) unstable; urgency=low
+
+  [ Jakub Wilk ]
+  * Use canonical URIs for Vcs-* fields.
+
+  [ Sandro Tosi ]
+  * New upstream release; thanks to Michal Čihař for the report; Closes: #720533
+    - crash when include-ids is activated; Closes: #689172
+  * debian/copyright
+    - updated to machine-parsable format
+    - extended packaging copyright years
+  * debian/control
+    - bump Standards-Version to 3.9.5 (no changes needed)
+    - replace all depencencies on astng with astroid
+  * debian/rules
+    - moved to dh sequencer
+  * debian/compat
+    - bump compat to 9
+  * debian/{control, rules}
+    - switch to dh_python2; thanks to Benjamin Drung for the report and patch;
+      Closes: #702128
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 05 Jan 2014 12:25:48 +0100
+
+pylint (0.27.0-1) experimental; urgency=low
+
+  * New upstream release
+  * debian/control
+    - new Homepage
+  * debian/watch
+    - update download URL
+  * debian/copyright
+    - update upstream copyright information
+    - extended packaging copyright years
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 14 Apr 2013 23:22:37 +0200
+
+pylint (0.26.0-1) experimental; urgency=low
+
+  * New upstream release; Closes: #691108
+
+ -- Sandro Tosi <morph@debian.org>  Thu, 25 Oct 2012 23:09:47 +0200
+
+pylint (0.25.2-1) experimental; urgency=low
+
+  * New upstream release
+  * debian/copyright
+    - update upstream and packaging copyright years
+  * debian/control
+    - bump Standards-Version to 3.9.3 (no changes needed)
+
+ -- Sandro Tosi <morph@debian.org>  Sat, 11 Aug 2012 14:26:44 +0200
+
+pylint (0.25.1-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Sandro Tosi <morph@debian.org>  Fri, 30 Dec 2011 23:28:42 +0100
+
+pylint (0.25.0-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 16 Oct 2011 12:32:22 +0200
+
+pylint (0.24.0-1) unstable; urgency=low
+
+  * New upstream release
+  * debian/copyright
+    - bump upstream and packaging copyright years
+  * debian/rules
+    - add build-arch build-indep targets, as suggested by lintian
+  * debian/control
+    - bump Standards-Version to 3.9.2 (no changes needed)
+
+ -- Sandro Tosi <morph@debian.org>  Tue, 02 Aug 2011 20:05:50 +0200
+
+pylint (0.23.0-1) unstable; urgency=low
+
+  * New upstream release
+    - provides manpages for epylint, pylint-gui, symilar; Closes: #575679
+  * debian/control
+    - mention pyreverse, symilar, epylint, pylint-gui additional commands in
+      long description
+    - update versioned Depends and b-d-i on logilab-{common, astng}
+    - added python-unittest2 to b-d-i, needed to run tests
+  * debian/pylint.manpages
+    - install all the available manpages
+
+ -- Sandro Tosi <morph@debian.org>  Tue, 29 Mar 2011 19:27:47 +0200
+
+pylint (0.22.0-1) experimental; urgency=low
+
+  * New upstream release; Closes: #598482
+  * debian/control
+    - minimum supported python version is 2.6
+    - bump versioned depends on python-logilab-common to' >= 0.53.0'
+    - bump versioned depends on python-logilab-astng to '>= 0.21.0'
+
+ -- Sandro Tosi <morph@debian.org>  Tue, 07 Dec 2010 01:30:49 +0100
+
+pylint (0.21.3-1) experimental; urgency=low
+
+  * New upstream release
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 10 Oct 2010 00:29:57 +0200
+
+pylint (0.21.2-1) experimental; urgency=low
+
+  * New upstream release
+    - fixed "Class 'baz' has no 'egg' member" in non-class code; thanks to
+      Helmut Grohne for the report; Closes: #534682
+    - fixed "KeyError: 'RP0401'" crash (referring to "R0401"); thanks to Jakub
+      Wilk for the report; Closes: #591670
+    - fixed "'unable to import module' when in try: except ImportError"; thanks
+      to Helmut Grohne for the report; Closes: #533296
+  * debian/copyright
+    - updated upstream author information
+  * debian/control
+    - bump Standards-Version to 3.9.1 (no changes needed)
+
+ -- Sandro Tosi <morph@debian.org>  Sat, 25 Sep 2010 15:10:34 +0200
+
+pylint (0.21.1-1) unstable; urgency=low
+
+  * New upstream release
+    - updated manpage; thanks to John Kozak for the report; Closes: #582494
+  * debian/NEWS
+    - added to notify of the incompatible changes in 0.21.0
+
+ -- Sandro Tosi <morph@debian.org>  Sat, 12 Jun 2010 09:15:05 +0200
+
+pylint (0.21.0-1) unstable; urgency=low
+
+  * New upstream release
+    - doesn't crash in presence of '~/.pylintrc' config file; thanks to Thomas
+      Nilsson for the report and Neil Muller for following up; Closes: #580637
+    - fix '--enable-msg'; thanks to Francois Gouget for the report;
+      Closes: #541063
+  * debian/control
+    - bump dependencies for python-logilab-common to '>= 0.50.1'
+    - bump dependencies for python-logilab-astng to '>= 0.20.1'
+
+ -- Sandro Tosi <morph@debian.org>  Thu, 20 May 2010 19:54:54 +0200
+
+pylint (0.20.0-1) unstable; urgency=low
+
+  * New upstream release
+    - thanks to Michael Richters for the report; Closes: #475939
+  * debian/copyright
+    - updated upstream and packaging copyright years
+  * debian/control
+    - bump Depends on python-logilab-common to '>= 0.49.0'
+    - bump Depends on python-logilab-astng to '>= 0.20.0'
+    - bump Standards-Version to 3.8.4 (no changes needed)
+    - dropped XB-Python-Version
+    - added python-logilab-common to b-d-i to have 'pytest' available
+    - added python-logilab-astng to b-d-i, needed to run tests
+  * debian/rules
+    - also delete *.pyo files (generated by tests running with -OO)
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 28 Mar 2010 12:57:48 +0200
+
+pylint (0.19.0-1) unstable; urgency=low
+
+  * New upstream release
+  * debian/pylint.docs
+    - removed 'TODO', no more shipped
+  * debian/copyright
+    - updated copyright information, also adding new files with different info
+  * debian/{rules, TODO}
+    - run tests at build-time
+  * debian/pylint.postrm
+    - use 'set -e' instead of calling shell with '-e'
+
+ -- Sandro Tosi <morph@debian.org>  Sat, 19 Dec 2009 21:38:49 +0100
+
+pylint (0.18.1-1) unstable; urgency=medium
+
+  [ Julien Lavergne ]
+  * Python 2.6 transition, thanks Alessio Treglia for the patch; Closes: #530509
+   - Use --install-layout=deb for setup.py install.
+   - Replace site-packages by *-packages.
+   - Build-depends on python >= 2.5.4-1~ for --install-layout=deb.
+
+  [ Alexandre Fayolle ]
+   * debian/rules: set NO_SETUPTOOLS when calling python setup.py
+
+  [ Sandro Tosi ]
+  * New upstream release
+    - fix a false positive on E0611; thanks to Yann Dirson for the report;
+      Closes: #546522
+  * debian/control
+    - removed Conflicts and Replaces, no more needed
+    - bump Standards-Version to 3.8.3 (no changes needed)
+    - bump versioned dependencies on python-logilab-common and
+      python-logilab-astng (to correctly handle migratation from pycentral to
+      pysupport, hence the urgency)
+  * debian/README.source
+    - removed, not needed
+
+ -- Sandro Tosi <morph@debian.org>  Mon, 14 Sep 2009 23:52:18 +0200
+
+pylint (0.18.0-1) unstable; urgency=low
+
+  * New upstream release
+  * debian/copyright
+    - added packaging copyright for the work I do
+    - clearly separated copyright and license notices, indenting by 4 spaces
+    - link to GPL-2 file, not to the generic GPL
+  * debian/control
+    - updated Homepage field
+    - bump versions for python-logilab-common and python-logilab-astng depends
+    - bump Standard-Versions to 3.8.1 (no changes needed)
+  * debian/{control, rules}
+    - switch from python-central to python-support
+  * debian/rules
+    - 'build' is a dir, we need to clean with 'rm'
+
+ -- Sandro Tosi <morph@debian.org>  Fri, 27 Mar 2009 09:45:39 +0100
+
+pylint (0.16.0-1) unstable; urgency=low
+
+  * New upstream release; Closes: #515799
+  * debian/control
+    - added Vcs-{Svn,Browser} field
+    - bump versioned depe on python-logilab-astng and python-logilab-common
+  * debian/copyright
+    - extended copyright years
+  * debian/rules
+    - using '--root' instead of '--prefix' to install
+  * debian/pycompat
+    - removed since python-central uses XS-Python-Version control field
+  * debian/pylint.{postinst,prerm}
+    - removed since empty
+  * debian/pylint.dirs
+    - removed 'test' dir from doc, not needed and hence empty
+
+ -- Sandro Tosi <morph@debian.org>  Wed, 18 Feb 2009 19:35:44 +0100
+
+pylint (0.15.2-1) unstable; urgency=low
+
+  * New upstream release
+  * debian/control
+    - added under PAPT umbrella (in agreement with Alexandre Fayolle)
+    - added me to uploaders
+    - moved Homepage field to source stanza
+    - bump Standards-Version to 3.8.0
+      + added debian/README.source
+    - moved python (removing version, since we are in a 2.4+2.5 distribution) to
+      build-dep from build-dep-indep (to satisfy clean target needs)
+    - added ${python:Depends}, ${misc:Depends} to depends instead of directly
+      depending on "python" package
+  * debian/watch
+    - bump verstion to 3
+    - left only the url to scan, adding "opts=pasv" for ftp scan
+  * debian/pylint.docs
+    - install all doc/ directory files
+    - added README and TODO (from debian/rules)
+  * debian/rules
+    - merged 'rm -f' commands into dh_clean call
+    - added "python setup.py clean" call in clean target
+    - install upstream "Changelog" using dh_installchangelog
+    - removed files passed to dh_installdocs since using debian/pylint.docs and
+      because debian/NEWS.Debian is automatically installed
+    - using '-delete' find option instead of xargs
+    - fix executables shebang with a for loop
+
+ -- Sandro Tosi <morph@debian.org>  Wed, 26 Nov 2008 16:45:36 +0100
+
+pylint (0.15.2-0) unstable; urgency=low
+
+  * new upstream release
+
+ -- Emile Anclin <emile.anclin@logilab.fr>  Mon,  13 Oct 2008 13:38:00 +0200
+
+pylint (0.15.1-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Emile Anclin <emile.anclin@logilab.fr>  Mon,  15 Sep 2008 14:38:00 +0200
+
+pylint (0.15.0-1) unstable; urgency=low
+
+  * new upstream release
+  * Acknowledge NMU: thanks a lot, your patches have been backported in
+    upstream code (closes: #427244, #448102, #415485, #431653)
+
+ -- Emile Anclin <emile.anclin@logilab.fr>  Wed,  10 Sep 2008 12:16:00 +0200
+
+pylint (0.14.0-2.2) unstable; urgency=low
+
+  * NMU. Rebuild to move files to /usr/share/pyshared. Closes: #490488.
+
+ -- Matthias Klose <doko@debian.org>  Fri, 18 Jul 2008 15:53:30 +0000
+
+pylint (0.14.0-2.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * BF: flavor -> debian-emacs-flavor in startup
+  * NF: added pylint-options variable visible to users to tune up (closes:
+    #427244)
+  * BF: reenabled installation of pylint.el (closes: #448102)
+  * Recent upstream of pylint.el fixed few bugs which weren't closed
+    in the upload to Debian. Since this is first upload which enables
+    pylint.el, imho it is ok to close them here (closes: #415485, #431653)
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Mon, 03 Mar 2008 22:22:07 -0500
+
+pylint (0.14.0-2) unstable; urgency=low
+
+  * Acknowledge NMU by Kumar Appaiah <akumar@ee.iitm.ac.in>  (Closes: #454401)
+  * Debian upload of the new upstream release
+  * Install modules for all available python versions (Closes: #438438)
+  * new standards version, no changes required
+
+ -- Alexandre Fayolle <afayolle@debian.org>  Wed, 13 Feb 2008 17:36:30 +0100
+
+pylint (0.14.0-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Sylvain Thénault <Sylvain.Thenault@logilab.fr>  Mon, 14 Jan 2008 13:34:24 +0100
+
+pylint (0.13.2-2.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * debian/pylint.postrm:
+    + Added to remove old Emacs mode upon purge.
+      (Closes: #454401)
+
+ -- Kumar Appaiah <akumar@ee.iitm.ac.in>  Thu, 31 Jan 2008 22:27:18 +0530
+
+pylint (0.13.2-2) unstable; urgency=low
+
+  * Upload package to debian (closes: #426418)
+  * tests are no longer installed in /usr/share/doc/pylint, use the source
+    package to get them
+  * pylint.el is no longer installed for emacs, because it is not
+    compatible with emacs22. It will be reenabled in a future version,
+    when all the bugs have been dealt with by upstream.  Emacs21 users may
+    get it from /usr/share/doc/pylint/examples/pylint.el. Added a note
+    about this in NEWS.Debian.
+  * Only Recommend python-tk and give a nicer warning in the pylint-gui
+    script if tkinter is not available.
+  * Updated versions of dependencies on logilab-common and astng
+
+ -- Alexandre Fayolle <afayolle@debian.org>  Wed, 04 Jul 2007 12:21:24 +0200
+
+pylint (0.13.2-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Thu, 07 Jun 2007 16:44:53 +0200
+
+pylint (0.13.1-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Fri,  2 Mar 2007 08:24:08 +0100
+
+pylint (0.13.0-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Thu, 22 Feb 2007 11:28:23 +0100
+
+pylint (0.12.2-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Thu, 23 Nov 2006 16:08:28 +0100
+
+pylint (0.12.1-1) unstable; urgency=low
+
+  * new uptream release
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Mon, 25 Sep 2006 16:46:40 +0200
+
+pylint (0.12.0-2) unstable; urgency=low
+
+  * Upload to Debian
+  * Fixed the XS-Python-Version value (closes: #388158)
+
+ -- Alexandre Fayolle <afayolle@debian.org>  Tue, 19 Sep 2006 09:51:03 +0200
+
+pylint (0.12.0-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Adrien.DiMascio <Adrien.DiMascio@logilab.fr>  Thu, 10 Aug 2006 11:18:50 +0200
+
+pylint (0.11.0-2) unstable; urgency=low
+
+  * Updated standards to 3.7.2
+  * use debhelper 5
+  * new python policy
+
+ -- Alexandre Fayolle <afayolle@debian.org>  Thu, 15 Jun 2006 10:38:32 +0200
+
+pylint (0.11.0-1) unstable; urgency=low
+
+  * new upstream release, depending on python-astng 0.16
+  * Applied Sebastian Rittau's patch to avoid NameError on InferenceError
+    exception (closes: #358194)
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Wed, 19 Apr 2006 18:10:47 +0200
+
+pylint (0.10.0-1) unstable; urgency=low
+
+  * new upstream release, depending on python-astng 0.15
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Mon,  6 Mar 2006 09:43:19 +0100
+
+pylint (0.9.0-3) unstable; urgency=low
+
+  * Added missing provides/replaces/conflicts on pylint-test (closes: #352316)
+
+ -- Alexandre Fayolle <afayolle@debian.org>  Mon, 13 Feb 2006 10:07:26 +0100
+
+pylint (0.9.0-2) unstable; urgency=low
+
+  * Build a single package which installs modules in /usr/lib/site-python
+    (closes: #351130)
+  * Remove duplication from man page (closes: #349689)
+  * Fixed typo in control file
+  * upload new release to Debian
+
+ -- Alexandre Fayolle <afayolle@debian.org>  Fri, 10 Feb 2006 16:03:37 +0100
+
+pylint (0.9.0-1) unstable; urgency=low
+
+  * fix false positive with staticmethod used on a metaclass (closes: #341121)
+  * reorganization to install into site-python, removing the need for
+    pythonX.X- packages and for the pylint-common and pylint-test packages
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Tue, 10 Jan 2006 14:19:57 +0100
+
+pylint (0.8.1-1) unstable; urgency=low
+
+  * added missing dependancy to logilab-astng
+  * added missing .docs and .examples files
+  * update control'standards-version to 3.6.2
+  * fixed FSF address in the copyright file
+  * new upstream release
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Mon,  7 Nov 2005 15:40:52 +0100
+
+pylint (0.8.0-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Fri, 21 Oct 2005 18:44:24 +0200
+
+pylint (0.7.0-1) unstable; urgency=low
+
+  * new upstream release (closes: #310957)
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Fri, 27 May 2005 11:17:44 +0200
+
+pylint (0.6.4-1) unstable; urgency=low
+
+  * new upstream release
+  * added man page for pylint
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Thu, 14 Apr 2005 12:02:15 +0200
+
+pylint (0.6.3-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Thu, 24 Feb 2005 17:44:35 +0100
+
+pylint (0.6.2-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Wed, 16 Feb 2005 12:00:47 +0100
+
+pylint (0.6.1-1) unstable; urgency=low
+
+  * new upstream release
+  * added option to specify rc file location (closes: #265159)
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Fri,  4 Feb 2005 16:48:09 +0100
+
+pylint (0.6.0-1) unstable; urgency=low
+
+  * new upstream release
+  * build package for python 2.4
+  * remove unused directory from logilab-common.dirs
+  * updated copyright
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Thu, 20 Jan 2005 18:06:29 +0100
+
+pylint (0.5.0-2) unstable; urgency=low
+
+  * Patched pylint.el using latest upsrteam CVS (closes: #280870)
+
+ -- Alexandre Fayolle <afayolle@debian.org>  Mon, 15 Nov 2004 10:59:51 +0100
+
+pylint (0.5.0-1) unstable; urgency=low
+
+  * use Build-depends instead of Build-depends-indep in control
+  * new upstream release
+  * updated debian/watch file to version 2
+
+ -- Alexandre Fayolle <afayolle@debian.org>  Tue,  9 Nov 2004 16:22:47 +0100
+
+pylint (0.4.2-2) unstable; urgency=low
+
+  * fixed typos in debian/control (closes: #265156)
+  * updated description of pylint-test
+  * changed dependency on pylint-common to a recommendation (closes: #265157)
+  * updated maintainer address
+
+ -- Alexandre Fayolle <afayolle@debian.org>  Sun, 15 Aug 2004 10:39:06 +0200
+
+pylint (0.4.2-1) unstable; urgency=low
+
+  * new upstream release
+  * initial upload to Debian (closes: #258235)
+
+ -- Alexandre Fayolle <alexandre.fayolle@logilab.fr>  Thu,  8 Jul 2004 12:54:18 +0200
+
+pylint (0.4.0-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Mon, 10 May 2004 17:03:04 +0200
+
+pylint (0.3.3-1) unstable; urgency=low
+
+  * new upstream release
+  * emacs lisp for pylint in a new pylint-common package
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Mon, 16 Feb 2004 18:09:23 +0100
+
+pylint (0.3.2-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Tue, 23 Dec 2003 14:56:04 +0100
+
+pylint (0.3.1-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Fri,  5 Dec 2003 16:20:44 +0100
+
+pylint (0.3.0-1) unstable; urgency=low
+
+  * new upstream release
+  * depends on logilab.common >= 0.4
+  * build depends on debhelper >= 4.0
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Wed, 19 Nov 2003 11:07:45 +0100
+
+pylint (0.2.1-2) unstable; urgency=low
+
+  * fixed dependency on logilab-common (>=0.3.4) since earlier versions
+    caused bugs with some python2.3 code
+  * included sample pylintrc files with the documentation
+  * added documentation that had disappeared in the previous 0.2.1-1
+  * only puts html documentation in doc/html/, all others in doc/
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Fri, 10 Oct 2003 12:11:53 +0200
+
+pylint (0.2.1-1) unstable; urgency=low
+
+  * new upstream release
+  * package renamed to pylint instead of logilab-pylint
+  * move tests in a separated package
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Fri, 10 Oct 2003 09:39:22 +0200
+
+logilab-pylint (0.2.0-1) unstable; urgency=low
+
+  * new upstream release
+  * dropped python2.1 support
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Fri, 12 Sep 2003 18:26:15 +0200
+
+logilab-pylint (0.1.2-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Wed, 11 Jun 2003 15:21:44 +0200
+
+logilab-pylint (0.1.1-2) unstable; urgency=low
+
+  * fix dependencie to logilab.common
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Wed,  4 Jun 2003 18:07:45 +0200
+
+logilab-pylint (0.1.1-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Mon, 19 May 2003 15:10:25 +0200
+
+logilab-pylint (0.1.0-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Sylvain Thénault <sylvain.thenault@logilab.fr>  Wed, 23 Apr 2003 14:42:05 +0200

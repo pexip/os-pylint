@@ -1,0 +1,3 @@
+usr/bin
+usr/lib/python3*/dist-packages
+elisp/pylint.el /usr/share/emacs/site-lisp/pylint/
