@@ -1,3 +1,9 @@
+pylint (2.12.2-1pexip1) pexip-bullseye; urgency=medium
+
+  * Prepare Pexip packaging
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Tue, 19 Jul 2022 19:49:40 +0100
+
 pylint (2.12.2-1) unstable; urgency=medium
 
   * New upstream release; Closes: #1001137
