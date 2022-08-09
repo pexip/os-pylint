@@ -1,3 +1,11 @@
+pylint (2.12.2-1pexip2) pexip-bullseye; urgency=medium
+
+  * Backport upstream patches from Huw:
+    + upstream_1c87f3f0781e1eda638432da2fd80d3510e52ffe.patch
+    + upstream_72e2e2a222e867e74b0ae15293a1a3c7bb5d16fe.patch
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Tue, 09 Aug 2022 11:41:12 +0100
+
 pylint (2.12.2-1pexip1) pexip-bullseye; urgency=medium
 
   * Prepare Pexip packaging
