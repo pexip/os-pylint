@@ -9,6 +9,15 @@ Date:   Wed May 4 22:52:52 2022 +0100
 
 --- a/pylint/checkers/typecheck.py
 +++ b/pylint/checkers/typecheck.py
+@@ -69,7 +69,7 @@
+ from collections import deque
+ from collections.abc import Sequence
+ from functools import singledispatch
+-from typing import Any, Callable, Iterator, List, Optional, Pattern, Tuple
++from typing import Any, Callable, Iterator, List, Optional, Pattern, Tuple, Union
+ 
+ import astroid
+ from astroid import bases, nodes
 @@ -485,6 +485,8 @@
              except astroid.MroError:
                  return False
@@ -23,7 +32,7 @@ Date:   Wed May 4 22:52:52 2022 +0100
  
  
 +def _get_all_attribute_assignments(
-+    node: nodes.FunctionDef, name: str | None = None
++    node: nodes.FunctionDef, name: Optional[str] = None
 +) -> set[str]:
 +    attributes: set[str] = set()
 +    for child in node.nodes_of_class((nodes.Assign, nodes.AnnAssign)):
@@ -46,7 +55,7 @@ Date:   Wed May 4 22:52:52 2022 +0100
 +
 +
 +def _enum_has_attribute(
-+    owner: astroid.Instance | nodes.ClassDef, node: nodes.Attribute
++    owner: Union[astroid.Instance | nodes.ClassDef], node: nodes.Attribute
 +) -> bool:
 +    if isinstance(owner, astroid.Instance):
 +        enum_def = next(
