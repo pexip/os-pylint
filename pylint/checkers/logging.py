@@ -1,41 +1,35 @@
-# Copyright (c) 2009-2011, 2013-2014 LOGILAB S.A. (Paris, FRANCE) <contact@logilab.fr>
-# Copyright (c) 2009, 2012, 2014 Google, Inc.
-# Copyright (c) 2012 Mike Bryant <leachim@leachim.info>
-# Copyright (c) 2014 Brett Cannon <brett@python.org>
-# Copyright (c) 2014 Arun Persaud <arun@nubati.net>
-# Copyright (c) 2015-2020 Claudiu Popa <pcmanticore@gmail.com>
-# Copyright (c) 2015 Ionel Cristian Maries <contact@ionelmc.ro>
-# Copyright (c) 2016, 2019-2020 Ashley Whetter <ashley@awhetter.co.uk>
-# Copyright (c) 2016 Chris Murray <chris@chrismurray.scot>
-# Copyright (c) 2017 guillaume2 <guillaume.peillex@gmail.col>
-# Copyright (c) 2017 Łukasz Rogalski <rogalski.91@gmail.com>
-# Copyright (c) 2018 Alan Chan <achan961117@gmail.com>
-# Copyright (c) 2018 Yury Gribov <tetra2005@gmail.com>
-# Copyright (c) 2018 Mike Frysinger <vapier@gmail.com>
-# Copyright (c) 2018 Mariatta Wijaya <mariatta@python.org>
-# Copyright (c) 2019-2021 Pierre Sassoulas <pierre.sassoulas@gmail.com>
-# Copyright (c) 2019 Djailla <bastien.vallet@gmail.com>
-# Copyright (c) 2019 Svet <svet@hyperscience.com>
-# Copyright (c) 2020 Anthony Sottile <asottile@umich.edu>
-# Copyright (c) 2021 Nick Drozd <nicholasdrozd@gmail.com>
-# Copyright (c) 2021 Daniël van Noord <13665637+DanielNoord@users.noreply.github.com>
-# Copyright (c) 2021 Marc Mueller <30130371+cdce8p@users.noreply.github.com>
 # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
 
-"""checker for use of Python logging
-"""
+"""Checker for use of Python logging."""
+
+from __future__ import annotations
+
 import string
-from typing import Set
+import sys
+from typing import TYPE_CHECKING
 
 import astroid
-from astroid import nodes
+from astroid import bases, nodes
+from astroid.typing import InferenceResult
 
-from pylint import checkers, interfaces
+from pylint import checkers
 from pylint.checkers import utils
-from pylint.checkers.utils import check_messages, infer_all
+from pylint.checkers.utils import infer_all
+from pylint.typing import MessageDefinitionTuple
 
-MSGS = {  # pylint: disable=consider-using-namedtuple-or-dataclass
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
+
+if TYPE_CHECKING:
+    from pylint.lint import PyLinter
+
+MSGS: dict[
+    str, MessageDefinitionTuple
+] = {  # pylint: disable=consider-using-namedtuple-or-dataclass
     "W1201": (
         "Use %s formatting in logging functions",
         "logging-not-lazy",
@@ -111,17 +105,21 @@ CHECKED_CONVENIENCE_FUNCTIONS = {
     "warning",
 }
 
+MOST_COMMON_FORMATTING = frozenset(["%s", "%d", "%f", "%r"])
 
-def is_method_call(func, types=(), methods=()):
+
+def is_method_call(
+    func: bases.BoundMethod, types: tuple[str, ...] = (), methods: tuple[str, ...] = ()
+) -> bool:
     """Determines if a BoundMethod node represents a method call.
 
     Args:
-      func (astroid.BoundMethod): The BoundMethod AST node to check.
-      types (Optional[String]): Optional sequence of caller type names to restrict check.
-      methods (Optional[String]): Optional sequence of method names to restrict check.
+      func: The BoundMethod AST node to check.
+      types: Optional sequence of caller type names to restrict check.
+      methods: Optional sequence of method names to restrict check.
 
     Returns:
-      bool: true if the node represents a method call for the given type and
+      true if the node represents a method call for the given type and
       method names, False otherwise.
     """
     return (
@@ -135,7 +133,6 @@ def is_method_call(func, types=(), methods=()):
 class LoggingChecker(checkers.BaseChecker):
     """Checks use of the logging module."""
 
-    __implements__ = interfaces.IAstroidChecker
     name = "logging"
     msgs = MSGS
 
@@ -168,10 +165,10 @@ class LoggingChecker(checkers.BaseChecker):
         # The code being checked can just as easily "import logging as foo",
         # so it is necessary to process the imports and store in this field
         # what name the logging module is actually given.
-        self._logging_names: Set[str] = set()
-        logging_mods = self.config.logging_modules
+        self._logging_names: set[str] = set()
+        logging_mods = self.linter.config.logging_modules
 
-        self._format_style = self.config.logging_format_style
+        self._format_style = self.linter.config.logging_format_style
 
         self._logging_modules = set(logging_mods)
         self._from_imports = {}
@@ -196,18 +193,17 @@ class LoggingChecker(checkers.BaseChecker):
             if module in self._logging_modules:
                 self._logging_names.add(as_name or module)
 
-    @check_messages(*MSGS)
     def visit_call(self, node: nodes.Call) -> None:
         """Checks calls to logging methods."""
 
-        def is_logging_name():
+        def is_logging_name() -> bool:
             return (
                 isinstance(node.func, nodes.Attribute)
                 and isinstance(node.func.expr, nodes.Name)
                 and node.func.expr.name in self._logging_names
             )
 
-        def is_logger_class():
+        def is_logger_class() -> tuple[bool, str | None]:
             for inferred in infer_all(node.func):
                 if isinstance(inferred, astroid.BoundMethod):
                     parent = inferred._proxied.parent
@@ -229,14 +225,14 @@ class LoggingChecker(checkers.BaseChecker):
                 return
         self._check_log_method(node, name)
 
-    def _check_log_method(self, node, name):
+    def _check_log_method(self, node: nodes.Call, name: str) -> None:
         """Checks calls to logging.log(level, format, *format_args)."""
         if name == "log":
             if node.starargs or node.kwargs or len(node.args) < 2:
                 # Either a malformed call, star args, or double-star args. Beyond
                 # the scope of this checker.
                 return
-            format_pos = 1
+            format_pos: Literal[0, 1] = 1
         elif name in CHECKED_CONVENIENCE_FUNCTIONS:
             if node.starargs or node.kwargs or not node.args:
                 # Either no args, star args, or double-star args. Beyond the
@@ -246,8 +242,9 @@ class LoggingChecker(checkers.BaseChecker):
         else:
             return
 
-        if isinstance(node.args[format_pos], nodes.BinOp):
-            binop = node.args[format_pos]
+        format_arg = node.args[format_pos]
+        if isinstance(format_arg, nodes.BinOp):
+            binop = format_arg
             emit = binop.op == "%"
             if binop.op == "+":
                 total_number_of_strings = sum(
@@ -262,18 +259,20 @@ class LoggingChecker(checkers.BaseChecker):
                     node=node,
                     args=(self._helper_string(node),),
                 )
-        elif isinstance(node.args[format_pos], nodes.Call):
-            self._check_call_func(node.args[format_pos])
-        elif isinstance(node.args[format_pos], nodes.Const):
+        elif isinstance(format_arg, nodes.Call):
+            self._check_call_func(format_arg)
+        elif isinstance(format_arg, nodes.Const):
             self._check_format_string(node, format_pos)
-        elif isinstance(node.args[format_pos], nodes.JoinedStr):
+        elif isinstance(format_arg, nodes.JoinedStr):
+            if str_formatting_in_f_string(format_arg):
+                return
             self.add_message(
                 "logging-fstring-interpolation",
                 node=node,
                 args=(self._helper_string(node),),
             )
 
-    def _helper_string(self, node):
+    def _helper_string(self, node: nodes.Call) -> str:
         """Create a string that lists the valid types of formatting for this node."""
         valid_types = ["lazy %"]
 
@@ -291,13 +290,11 @@ class LoggingChecker(checkers.BaseChecker):
         return " or ".join(valid_types)
 
     @staticmethod
-    def _is_operand_literal_str(operand):
-        """
-        Return True if the operand in argument is a literal string
-        """
+    def _is_operand_literal_str(operand: InferenceResult | None) -> bool:
+        """Return True if the operand in argument is a literal string."""
         return isinstance(operand, nodes.Const) and operand.name == "str"
 
-    def _check_call_func(self, node: nodes.Call):
+    def _check_call_func(self, node: nodes.Call) -> None:
         """Checks that function call is not format_string.format()."""
         func = utils.safe_infer(node.func)
         types = ("str", "unicode")
@@ -313,12 +310,12 @@ class LoggingChecker(checkers.BaseChecker):
                 args=(self._helper_string(node),),
             )
 
-    def _check_format_string(self, node, format_arg):
+    def _check_format_string(self, node: nodes.Call, format_arg: Literal[0, 1]) -> None:
         """Checks that format string tokens match the supplied arguments.
 
         Args:
-          node (nodes.NodeNG): AST node to be checked.
-          format_arg (int): Index of the format string in the node arguments.
+          node: AST node to be checked.
+          format_arg: Index of the format string in the node arguments.
         """
         num_args = _count_supplied_tokens(node.args[format_arg + 1 :])
         if not num_args:
@@ -385,7 +382,7 @@ def is_complex_format_str(node: nodes.NodeNG) -> bool:
     return any(format_spec for (_, _, format_spec, _) in parsed)
 
 
-def _count_supplied_tokens(args):
+def _count_supplied_tokens(args: list[nodes.NodeNG]) -> int:
     """Counts the number of tokens in an args list.
 
     The Python log functions allow for special keyword arguments: func,
@@ -393,14 +390,26 @@ def _count_supplied_tokens(args):
     arguments that aren't keywords.
 
     Args:
-      args (list): AST nodes that are arguments for a log format string.
+      args: AST nodes that are arguments for a log format string.
 
     Returns:
-      int: Number of AST nodes that aren't keywords.
+      Number of AST nodes that aren't keywords.
     """
     return sum(1 for arg in args if not isinstance(arg, nodes.Keyword))
 
 
-def register(linter):
-    """Required method to auto-register this checker."""
+def str_formatting_in_f_string(node: nodes.JoinedStr) -> bool:
+    """Determine whether the node represents an f-string with string formatting.
+
+    For example: `f'Hello %s'`
+    """
+    # Check "%" presence first for performance.
+    return any(
+        "%" in val.value and any(x in val.value for x in MOST_COMMON_FORMATTING)
+        for val in node.values
+        if isinstance(val, nodes.Const)
+    )
+
+
+def register(linter: PyLinter) -> None:
     linter.register_checker(LoggingChecker(linter))

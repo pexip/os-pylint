@@ -1,10 +1,10 @@
-# pylint: disable=missing-docstring, multiple-statements, useless-object-inheritance, import-outside-toplevel
-# pylint: disable=too-few-public-methods, no-init, no-self-use, bare-except, broad-except
+# pylint: disable=missing-docstring, multiple-statements, import-outside-toplevel
+# pylint: disable=too-few-public-methods, bare-except, broad-except
 # pylint: disable=using-constant-test, import-error, global-variable-not-assigned, unnecessary-comprehension
-from __future__ import print_function
+# pylint: disable=unnecessary-lambda-assignment
 
-# pylint: disable=wrong-import-position
-from typing import TYPE_CHECKING, List
+
+from typing import TYPE_CHECKING
 
 DEFINED = 1
 
@@ -35,7 +35,7 @@ LMBD = lambda x, y=doesnotexist: x+y  # [undefined-variable]
 LMBD2 = lambda x, y: x+z  # [undefined-variable]
 
 try:
-    POUET # don't catch me
+    POUET # [used-before-assignment]
 except NameError:
     POUET = 'something'
 
@@ -45,7 +45,7 @@ except Exception: # pylint:disable = broad-except
     POUETT = 'something'
 
 try:
-    POUETTT # don't catch me
+    POUETTT # [used-before-assignment]
 except: # pylint:disable = bare-except
     POUETTT = 'something'
 
@@ -104,7 +104,7 @@ class TestClass(Ancestor):  # [used-before-assignment]
         """
         class UsingBeforeDefinition(Empty):  # [used-before-assignment]
             """ uses Empty before definition """
-        class Empty(object):
+        class Empty:
             """ no op """
         return UsingBeforeDefinition
 
@@ -114,11 +114,11 @@ class TestClass(Ancestor):  # [used-before-assignment]
             """ no op """
         return MissingAncestor1
 
-class Self(object):
+class Self:
     """ Detect when using the same name inside the class scope. """
     obj = Self # [undefined-variable]
 
-class Self1(object):
+class Self1:
     """ No error should be raised here. """
 
     def test(self):
@@ -126,17 +126,17 @@ class Self1(object):
         return Self1
 
 
-class Ancestor(object):
+class Ancestor:
     """ No op """
 
-class Ancestor1(object):
+class Ancestor1:
     """ No op """
 
 NANA = BAT # [undefined-variable]
-del BAT
+del BAT  # [undefined-variable]
 
 
-class KeywordArgument(object):
+class KeywordArgument:
     """Test keyword arguments."""
 
     enable = True
@@ -184,11 +184,11 @@ def test_conditional_comprehension():
     return my_methods
 
 
-class MyError(object):
+class MyError:
     pass
 
 
-class MyClass(object):
+class MyClass:
     class MyError(MyError):
         pass
 
@@ -267,15 +267,24 @@ if TYPE_CHECKING:
 if TYPE_CHECKING:
     from collections import Counter
     from collections import OrderedDict
+    from collections import defaultdict
+    from collections import UserDict
 else:
     Counter = object
     OrderedDict = object
+    def defaultdict():
+        return {}
+    class UserDict(dict):
+        pass
 
 
 def tick(counter: Counter, name: str, dictionary: OrderedDict) -> OrderedDict:
     counter[name] += 1
     return dictionary
 
+defaultdict()
+
+UserDict()
 
 # pylint: disable=unused-argument
 def not_using_loop_variable_accordingly(iterator):
@@ -289,6 +298,12 @@ class DunderClass:
         # This name is not defined in the AST but it's present at runtime
         return __class__
 
+    # It is also present in inner methods
+    def method_two(self):
+        def inner_method():
+            return __class__
+
+        inner_method()
 
 def undefined_annotation(a:x): # [undefined-variable]
     if x == 2: # [used-before-assignment]
@@ -340,40 +355,6 @@ else:
     from types import GenericAlias
     object().__class_getitem__ = classmethod(GenericAlias)
 
-# Tests for annotation of variables and potentially undefinition
-
-def value_and_type_assignment():
-    """The variable assigned a value and type"""
-    variable: int = 2
-    print(variable)
-
-
-def only_type_assignment():
-    """The variable never gets assigned a value"""
-    variable: int
-    print(variable)  # [undefined-variable]
-
-
-def both_type_and_value_assignment():
-    """The variable first gets a type and subsequently a value"""
-    variable: int
-    variable = 1
-    print(variable)
-
-
-def value_assignment_after_access():
-    """The variable gets a value after it has been accessed"""
-    variable: int
-    print(variable)  # [undefined-variable]
-    variable = 1
-
-
-def value_assignment_from_iterator():
-    """The variables gets a value from an iterator"""
-    variable: int
-    for variable in (1, 2):
-        print(variable)
-
 
 GLOBAL_VAR: int
 GLOBAL_VAR_TWO: int
@@ -392,36 +373,10 @@ GLOBAL_VAR: int
 GLOBAL_VAR_TWO: int
 
 
-def assignment_in_comprehension():
-    """A previously typed variables gets used in a comprehension. Don't crash!"""
-    some_list: List[int]
-    some_list = [1, 2, 3]
-    some_list = [i * 2 for i in some_list]
-
-
-def decorator_returning_function():
-    """A decorator that returns a wrapper function with decoupled typing"""
-    def wrapper_with_decoupled_typing():
-        print(var)
-
-    var: int
-    var = 2
-    return wrapper_with_decoupled_typing
-
-
-def decorator_returning_incorrect_function():
-    """A decorator that returns a wrapper function with decoupled typing"""
-    def wrapper_with_type_and_no_value():
-        print(var) # [undefined-variable]
-
-    var: int
-    return wrapper_with_type_and_no_value
-
-
-def typing_and_value_assignment_with_tuple_assignment():
-    """The typed variables get assigned with a tuple assignment"""
-    var_one: int
-    var_two: int
-    var_one, var_two = 1, 1
-    print(var_one)
-    print(var_two)
+class RepeatedReturnAnnotations:
+    def x(self, o: RepeatedReturnAnnotations) -> bool:  # [undefined-variable]
+        pass
+    def y(self) -> RepeatedReturnAnnotations:  # [undefined-variable]
+        pass
+    def z(self) -> RepeatedReturnAnnotations:  # [undefined-variable]
+        pass

@@ -1,4 +1,8 @@
-"""Test for issue https://github.com/PyCQA/pylint/issues/4286"""
+# Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+# For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
+
+"""Test for issue https://github.com/PyCQA/pylint/issues/4286."""
 # pylint: disable=redefined-outer-name
 from pathlib import PosixPath
 
@@ -21,12 +25,12 @@ def example_path(tmp_path: PosixPath) -> PosixPath:
 
 
 def test_epylint_good_command(example_path: PosixPath) -> None:
-    out, err = lint.py_run(
-        # pylint: disable-next=consider-using-f-string
-        "%s -E --disable=E1111 --msg-template '{category} {module} {obj} {line} {column} {msg}'"
-        % example_path,
-        return_std=True,
-    )
+    with pytest.warns(DeprecationWarning):
+        out, _ = lint.py_run(
+            f"{example_path} -E --disable=E1111 --msg-template "
+            "'{category} {module} {obj} {line} {column} {msg}'",
+            return_std=True,
+        )
     msg = out.read()
     assert (
         msg
@@ -35,16 +39,16 @@ def test_epylint_good_command(example_path: PosixPath) -> None:
  error my_app IvrAudioApp.run 4 8 Instance of 'IvrAudioApp' has no 'hassan' member
  """
     )
-    assert err.read() == ""
 
 
 def test_epylint_strange_command(example_path: PosixPath) -> None:
-    out, err = lint.py_run(
-        # pylint: disable-next=consider-using-f-string
-        "%s -E --disable=E1111 --msg-template={category} {module} {obj} {line} {column} {msg}"
-        % example_path,
-        return_std=True,
-    )
+    with pytest.warns(DeprecationWarning):
+        out, _ = lint.py_run(
+            # pylint: disable-next=consider-using-f-string
+            "%s -E --disable=E1111 --msg-template={category} {module} {obj} {line} {column} {msg}"
+            % example_path,
+            return_std=True,
+        )
     assert (
         out.read()
         == """\
@@ -62,4 +66,3 @@ def test_epylint_strange_command(example_path: PosixPath) -> None:
  error
  """
     )
-    assert err.read() == ""

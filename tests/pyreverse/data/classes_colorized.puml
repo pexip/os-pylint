@@ -19,8 +19,8 @@ class "DoSomething" as data.suppliermodule_test.DoSomething #aliceblue {
   do_it(new_int: int) -> int
 }
 class "Interface" as data.suppliermodule_test.Interface #aliceblue {
-  get_value()
-  set_value(value)
+  {abstract}get_value()
+  {abstract}set_value(value)
 }
 class "PropertyPatterns" as data.property_pattern.PropertyPatterns #aliceblue {
   prop1
@@ -31,10 +31,13 @@ class "Specialization" as data.clientmodule_test.Specialization #aliceblue {
   relation
   relation2
   top : str
+  from_value(value: int)
+  increment_value() -> None
+  transform_value(value: int) -> int
 }
 data.clientmodule_test.Specialization --|> data.clientmodule_test.Ancestor
 data.clientmodule_test.Ancestor ..|> data.suppliermodule_test.Interface
 data.suppliermodule_test.DoNothing --* data.clientmodule_test.Ancestor : cls_member
 data.suppliermodule_test.DoNothing --* data.clientmodule_test.Specialization : relation
-data.suppliermodule_test.DoNothing2 --* data.clientmodule_test.Specialization : relation2
+data.suppliermodule_test.DoNothing2 --o data.clientmodule_test.Specialization : relation2
 @enduml

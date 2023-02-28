@@ -1,21 +1,34 @@
 # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
 
 # pylint: disable=redefined-outer-name
 
-from typing import Callable, Optional
+from __future__ import annotations
+
+import sys
 
 import pytest
 
 from pylint.constants import PY38_PLUS
 from pylint.interfaces import HIGH, INFERENCE, Confidence
 from pylint.message import Message
-from pylint.testutils.output_line import MalformedOutputLineException, OutputLine
+from pylint.testutils.output_line import OutputLine
 from pylint.typing import MessageLocationTuple
+
+if sys.version_info >= (3, 8):
+    from typing import Protocol
+else:
+    from typing_extensions import Protocol
+
+
+class _MessageCallable(Protocol):
+    def __call__(self, confidence: Confidence = HIGH) -> Message:
+        ...
 
 
 @pytest.fixture()
-def message() -> Callable:
+def message() -> _MessageCallable:
     def inner(confidence: Confidence = HIGH) -> Message:
         return Message(
             symbol="missing-docstring",
@@ -52,7 +65,7 @@ def test_output_line() -> None:
     assert output_line.confidence == "HIGH"
 
 
-def test_output_line_from_message(message: Callable) -> None:
+def test_output_line_from_message(message: _MessageCallable) -> None:
     """Test that the OutputLine NamedTuple is instantiated correctly with from_msg."""
     expected_column = 2 if PY38_PLUS else 0
 
@@ -88,7 +101,7 @@ def test_output_line_from_message(message: Callable) -> None:
 
 
 @pytest.mark.parametrize("confidence", [HIGH, INFERENCE])
-def test_output_line_to_csv(confidence: Confidence, message: Callable) -> None:
+def test_output_line_to_csv(confidence: Confidence, message: _MessageCallable) -> None:
     """Test that the OutputLine NamedTuple is instantiated correctly with from_msg
     and then converted to csv.
     """
@@ -123,23 +136,34 @@ def test_output_line_to_csv(confidence: Confidence, message: Callable) -> None:
 
 def test_output_line_from_csv_error() -> None:
     """Test that errors are correctly raised for incorrect OutputLine's."""
-    with pytest.raises(
-        MalformedOutputLineException,
+    # Test a csv-string which does not have a number for line and column
+    with pytest.warns(
+        UserWarning,
         match="msg-symbolic-name:42:27:MyClass.my_function:The message",
     ):
         OutputLine.from_csv("'missing-docstring', 'line', 'column', 'obj', 'msg'", True)
-    with pytest.raises(
-        MalformedOutputLineException, match="symbol='missing-docstring' ?"
+    # Test a tuple which does not have a number for line and column
+    with pytest.warns(
+        UserWarning, match="we got 'missing-docstring:line:column:obj:msg'"
     ):
         csv = ("missing-docstring", "line", "column", "obj", "msg")
         OutputLine.from_csv(csv, True)
+    # Test a csv-string that is too long
+    with pytest.warns(
+        UserWarning,
+        match="msg-symbolic-name:42:27:MyClass.my_function:The message",
+    ):
+        OutputLine.from_csv(
+            "'missing-docstring', 1, 2, 'obj', 'msg', 'func', 'message', 'conf', 'too_long'",
+            True,
+        )
 
 
 @pytest.mark.parametrize(
     "confidence,expected_confidence", [[None, "UNDEFINED"], ["INFERENCE", "INFERENCE"]]
 )
 def test_output_line_from_csv_deprecated(
-    confidence: Optional[str], expected_confidence: str
+    confidence: str | None, expected_confidence: str
 ) -> None:
     """Test that the OutputLine NamedTuple is instantiated correctly with from_csv.
     Test OutputLine's of length 5 or 6.

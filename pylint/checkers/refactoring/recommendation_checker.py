@@ -1,18 +1,18 @@
 # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
-from typing import Union
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
+
+from __future__ import annotations
 
 import astroid
 from astroid import nodes
 
-from pylint import checkers, interfaces
+from pylint import checkers
 from pylint.checkers import utils
-from pylint.utils.utils import get_global_option
+from pylint.interfaces import HIGH, INFERENCE
 
 
 class RecommendationChecker(checkers.BaseChecker):
-
-    __implements__ = (interfaces.IAstroidChecker,)
     name = "refactoring"
     msgs = {
         "C0200": (
@@ -63,17 +63,19 @@ class RecommendationChecker(checkers.BaseChecker):
     }
 
     def open(self) -> None:
-        py_version = get_global_option(self, "py-version")
+        py_version = self.linter.config.py_version
         self._py36_plus = py_version >= (3, 6)
 
     @staticmethod
-    def _is_builtin(node, function):
+    def _is_builtin(node: nodes.NodeNG, function: str) -> bool:
         inferred = utils.safe_infer(node)
         if not inferred:
             return False
         return utils.is_builtin_object(inferred) and inferred.name == function
 
-    @utils.check_messages("consider-iterating-dictionary", "use-maxsplit-arg")
+    @utils.only_required_for_messages(
+        "consider-iterating-dictionary", "use-maxsplit-arg"
+    )
     def visit_call(self, node: nodes.Call) -> None:
         self._check_consider_iterating_dictionary(node)
         self._check_use_maxsplit_arg(node)
@@ -83,6 +85,10 @@ class RecommendationChecker(checkers.BaseChecker):
             return
         if node.func.attrname != "keys":
             return
+
+        if isinstance(node.parent, nodes.BinOp) and node.parent.op in {"&", "|", "^"}:
+            return
+
         comp_ancestor = utils.get_node_first_ancestor_of_type(node, nodes.Compare)
         if (
             isinstance(node.parent, (nodes.For, nodes.Comprehension))
@@ -99,10 +105,14 @@ class RecommendationChecker(checkers.BaseChecker):
                 inferred.bound, nodes.Dict
             ):
                 return
-            self.add_message("consider-iterating-dictionary", node=node)
+            self.add_message(
+                "consider-iterating-dictionary", node=node, confidence=INFERENCE
+            )
 
     def _check_use_maxsplit_arg(self, node: nodes.Call) -> None:
-        """Add message when accessing first or last elements of a str.split() or str.rsplit()."""
+        """Add message when accessing first or last elements of a str.split() or
+        str.rsplit().
+        """
 
         # Check if call is split() or rsplit()
         if not (
@@ -111,9 +121,14 @@ class RecommendationChecker(checkers.BaseChecker):
             and isinstance(utils.safe_infer(node.func), astroid.BoundMethod)
         ):
             return
+        inferred_expr = utils.safe_infer(node.func.expr)
+        if isinstance(inferred_expr, astroid.Instance) and any(
+            inferred_expr.nodes_of_class(nodes.ClassDef)
+        ):
+            return
 
         try:
-            utils.get_argument_from_call(node, 0, "sep")
+            sep = utils.get_argument_from_call(node, 0, "sep")
         except utils.NoSuchArgumentError:
             return
 
@@ -154,11 +169,11 @@ class RecommendationChecker(checkers.BaseChecker):
                 new_name = (
                     node.func.as_string().rsplit(fn_name, maxsplit=1)[0]
                     + new_fn
-                    + f"({node.args[0].as_string()}, maxsplit=1)[{subscript_value}]"
+                    + f"({sep.as_string()}, maxsplit=1)[{subscript_value}]"
                 )
                 self.add_message("use-maxsplit-arg", node=node, args=(new_name,))
 
-    @utils.check_messages(
+    @utils.only_required_for_messages(
         "consider-using-enumerate",
         "consider-using-dict-items",
         "use-sequence-for-iteration",
@@ -287,7 +302,7 @@ class RecommendationChecker(checkers.BaseChecker):
                 self.add_message("consider-using-dict-items", node=node)
                 return
 
-    @utils.check_messages(
+    @utils.only_required_for_messages(
         "consider-using-dict-items",
         "use-sequence-for-iteration",
     )
@@ -320,13 +335,20 @@ class RecommendationChecker(checkers.BaseChecker):
                 return
 
     def _check_use_sequence_for_iteration(
-        self, node: Union[nodes.For, nodes.Comprehension]
+        self, node: nodes.For | nodes.Comprehension
     ) -> None:
-        """Check if code iterates over an in-place defined set."""
-        if isinstance(node.iter, nodes.Set):
-            self.add_message("use-sequence-for-iteration", node=node.iter)
+        """Check if code iterates over an in-place defined set.
 
-    @utils.check_messages("consider-using-f-string")
+        Sets using `*` are not considered in-place.
+        """
+        if isinstance(node.iter, nodes.Set) and not any(
+            utils.has_starred_node_recursive(node)
+        ):
+            self.add_message(
+                "use-sequence-for-iteration", node=node.iter, confidence=HIGH
+            )
+
+    @utils.only_required_for_messages("consider-using-f-string")
     def visit_const(self, node: nodes.Const) -> None:
         if self._py36_plus:
             # f-strings require Python 3.6
@@ -337,7 +359,8 @@ class RecommendationChecker(checkers.BaseChecker):
 
     def _detect_replacable_format_call(self, node: nodes.Const) -> None:
         """Check whether a string is used in a call to format() or '%' and whether it
-        can be replaced by a f-string"""
+        can be replaced by an f-string.
+        """
         if (
             isinstance(node.parent, nodes.Attribute)
             and node.parent.attrname == "format"
@@ -387,6 +410,12 @@ class RecommendationChecker(checkers.BaseChecker):
         elif isinstance(node.parent, nodes.BinOp) and node.parent.op == "%":
             # Backslashes can't be in f-string expressions
             if "\\" in node.parent.right.as_string():
+                return
+
+            # If % applied to another type than str, it's modulo and can't be replaced by formatting
+            if not hasattr(node.parent.left, "value") or not isinstance(
+                node.parent.left.value, str
+            ):
                 return
 
             inferred_right = utils.safe_infer(node.parent.right)
