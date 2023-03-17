@@ -1,64 +1,11 @@
-# Copyright (c) 2006-2014 LOGILAB S.A. (Paris, FRANCE) <contact@logilab.fr>
-# Copyright (c) 2009 James Lingard <jchl@aristanetworks.com>
-# Copyright (c) 2012-2014 Google, Inc.
-# Copyright (c) 2014-2020 Claudiu Popa <pcmanticore@gmail.com>
-# Copyright (c) 2014 David Shea <dshea@redhat.com>
-# Copyright (c) 2014 Steven Myint <hg@stevenmyint.com>
-# Copyright (c) 2014 Holger Peters <email@holger-peters.de>
-# Copyright (c) 2014 Arun Persaud <arun@nubati.net>
-# Copyright (c) 2015 Anentropic <ego@anentropic.com>
-# Copyright (c) 2015 Dmitry Pribysh <dmand@yandex.ru>
-# Copyright (c) 2015 Rene Zhang <rz99@cornell.edu>
-# Copyright (c) 2015 Radu Ciorba <radu@devrandom.ro>
-# Copyright (c) 2015 Ionel Cristian Maries <contact@ionelmc.ro>
-# Copyright (c) 2016, 2019 Ashley Whetter <ashley@awhetter.co.uk>
-# Copyright (c) 2016 Alexander Todorov <atodorov@otb.bg>
-# Copyright (c) 2016 Jürgen Hermann <jh@web.de>
-# Copyright (c) 2016 Jakub Wilk <jwilk@jwilk.net>
-# Copyright (c) 2016 Filipe Brandenburger <filbranden@google.com>
-# Copyright (c) 2017, 2021 Ville Skyttä <ville.skytta@iki.fi>
-# Copyright (c) 2017-2018, 2020 hippo91 <guillaume.peillex@gmail.com>
-# Copyright (c) 2017 Łukasz Rogalski <rogalski.91@gmail.com>
-# Copyright (c) 2017 Derek Gustafson <degustaf@gmail.com>
-# Copyright (c) 2018-2019, 2021 Nick Drozd <nicholasdrozd@gmail.com>
-# Copyright (c) 2018 Pablo Galindo <Pablogsal@gmail.com>
-# Copyright (c) 2018 Jim Robertson <jrobertson98atx@gmail.com>
-# Copyright (c) 2018 Lucas Cimon <lucas.cimon@gmail.com>
-# Copyright (c) 2018 Mike Frysinger <vapier@gmail.com>
-# Copyright (c) 2018 Ben Green <benhgreen@icloud.com>
-# Copyright (c) 2018 Konstantin <Github@pheanex.de>
-# Copyright (c) 2018 Justin Li <justinnhli@users.noreply.github.com>
-# Copyright (c) 2018 Bryce Guinta <bryce.paul.guinta@gmail.com>
-# Copyright (c) 2019-2021 Pierre Sassoulas <pierre.sassoulas@gmail.com>
-# Copyright (c) 2019 Andy Palmer <25123779+ninezerozeronine@users.noreply.github.com>
-# Copyright (c) 2019 mattlbeck <17108752+mattlbeck@users.noreply.github.com>
-# Copyright (c) 2019 Martin Vielsmaier <martin.vielsmaier@gmail.com>
-# Copyright (c) 2019 Santiago Castro <bryant@montevideo.com.uy>
-# Copyright (c) 2019 yory8 <39745367+yory8@users.noreply.github.com>
-# Copyright (c) 2019 Federico Bond <federicobond@gmail.com>
-# Copyright (c) 2019 Pascal Corpet <pcorpet@users.noreply.github.com>
-# Copyright (c) 2020 Peter Kolbus <peter.kolbus@gmail.com>
-# Copyright (c) 2020 Julien Palard <julien@palard.fr>
-# Copyright (c) 2020 Ram Rachum <ram@rachum.com>
-# Copyright (c) 2020 Anthony Sottile <asottile@umich.edu>
-# Copyright (c) 2020 Anubhav <35621759+anubh-v@users.noreply.github.com>
-# Copyright (c) 2021 Marc Mueller <30130371+cdce8p@users.noreply.github.com>
-# Copyright (c) 2021 Tushar Sadhwani <tushar.sadhwani000@gmail.com>
-# Copyright (c) 2021 Daniël van Noord <13665637+DanielNoord@users.noreply.github.com>
-# Copyright (c) 2021 David Liu <david@cs.toronto.edu>
-# Copyright (c) 2021 doranid <ddandd@gmail.com>
-# Copyright (c) 2021 Yu Shao, Pang <36848472+yushao2@users.noreply.github.com>
-# Copyright (c) 2021 Andrew Haigh <nelfin@gmail.com>
-# Copyright (c) 2021 Jens H. Nielsen <Jens.Nielsen@microsoft.com>
-# Copyright (c) 2021 Ikraduya Edian <ikraduya@gmail.com>
-
 # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
 
-"""try to find more bugs in the code using astroid inference capabilities
-"""
+"""Try to find more bugs in the code using astroid inference capabilities."""
 
-import fnmatch
+from __future__ import annotations
+
 import heapq
 import itertools
 import operator
@@ -66,38 +13,63 @@ import re
 import shlex
 import sys
 import types
-from collections import deque
-from collections.abc import Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from functools import singledispatch
-from typing import Any, Callable, Iterator, List, Optional, Pattern, Tuple
+from re import Pattern
+from typing import TYPE_CHECKING, Any, TypeVar, Union
 
 import astroid
-from astroid import bases, nodes
+import astroid.exceptions
+import astroid.helpers
+from astroid import arguments, bases, nodes
+from astroid.typing import InferenceResult, SuccessfulInferenceResult
 
 from pylint.checkers import BaseChecker, utils
 from pylint.checkers.utils import (
-    check_messages,
     decorated_with,
     decorated_with_property,
     has_known_bases,
     is_builtin_object,
-    is_classdef_type,
     is_comprehension,
+    is_hashable,
     is_inside_abstract_class,
     is_iterable,
     is_mapping,
+    is_module_ignored,
+    is_node_in_type_annotation_context,
     is_overload_stub,
     is_postponed_evaluation_enabled,
     is_super,
     node_ignores_exception,
+    only_required_for_messages,
     safe_infer,
     supports_delitem,
     supports_getitem,
     supports_membership_test,
     supports_setitem,
 )
-from pylint.interfaces import INFERENCE, IAstroidChecker
-from pylint.utils import get_global_option
+from pylint.interfaces import HIGH, INFERENCE
+from pylint.typing import MessageDefinitionTuple
+
+if sys.version_info >= (3, 8):
+    from functools import cached_property
+    from typing import Literal
+else:
+    from astroid.decorators import cachedproperty as cached_property
+    from typing_extensions import Literal
+
+if TYPE_CHECKING:
+    from pylint.lint import PyLinter
+
+CallableObjects = Union[
+    bases.BoundMethod,
+    bases.UnboundMethod,
+    nodes.FunctionDef,
+    nodes.Lambda,
+    nodes.ClassDef,
+]
+
+_T = TypeVar("_T")
 
 STR_FORMAT = {"builtins.str.format"}
 ASYNCIO_COROUTINE = "asyncio.coroutines.coroutine"
@@ -109,16 +81,23 @@ TYPE_ANNOTATION_NODES_TYPES = (
 )
 
 
-def _unflatten(iterable):
+class VERSION_COMPATIBLE_OVERLOAD:
+    pass
+
+
+VERSION_COMPATIBLE_OVERLOAD_SENTINEL = VERSION_COMPATIBLE_OVERLOAD()
+
+
+def _unflatten(iterable: Iterable[_T]) -> Iterator[_T]:
     for index, elem in enumerate(iterable):
         if isinstance(elem, Sequence) and not isinstance(elem, str):
             yield from _unflatten(elem)
         elif elem and not index:
             # We're interested only in the first element.
-            yield elem
+            yield elem  # type: ignore[misc]
 
 
-def _flatten_container(iterable):
+def _flatten_container(iterable: Iterable[_T]) -> Iterator[_T]:
     # Flatten nested containers into a single iterable
     for item in iterable:
         if isinstance(item, (list, tuple, types.GeneratorType)):
@@ -127,8 +106,13 @@ def _flatten_container(iterable):
             yield item
 
 
-def _is_owner_ignored(owner, attrname, ignored_classes, ignored_modules):
-    """Check if the given owner should be ignored
+def _is_owner_ignored(
+    owner: SuccessfulInferenceResult,
+    attrname: str | None,
+    ignored_classes: Iterable[str],
+    ignored_modules: Iterable[str],
+) -> bool:
+    """Check if the given owner should be ignored.
 
     This will verify if the owner's module is in *ignored_modules*
     or the owner's module fully qualified name is in *ignored_modules*
@@ -139,32 +123,8 @@ def _is_owner_ignored(owner, attrname, ignored_classes, ignored_modules):
     matches any name from the *ignored_classes* or if its qualified
     name can be found in *ignored_classes*.
     """
-    ignored_modules = set(ignored_modules)
-    module_name = owner.root().name
-    module_qname = owner.root().qname()
-
-    for ignore in ignored_modules:
-        # Try to match the module name / fully qualified name directly
-        if module_qname in ignored_modules or module_name in ignored_modules:
-            return True
-
-        # Try to see if the ignores pattern match against the module name.
-        if fnmatch.fnmatch(module_qname, ignore):
-            return True
-
-        # Otherwise we might have a root module name being ignored,
-        # and the qualified owner has more levels of depth.
-        parts = deque(module_name.split("."))
-        current_module = ""
-
-        while parts:
-            part = parts.popleft()
-            if not current_module:
-                current_module = part
-            else:
-                current_module += f".{part}"
-            if current_module in ignored_modules:
-                return True
+    if is_module_ignored(owner.root(), ignored_modules):
+        return True
 
     # Match against ignored classes.
     ignored_classes = set(ignored_classes)
@@ -173,15 +133,15 @@ def _is_owner_ignored(owner, attrname, ignored_classes, ignored_modules):
 
 
 @singledispatch
-def _node_names(node):
+def _node_names(node: SuccessfulInferenceResult) -> Iterable[str]:
     if not hasattr(node, "locals"):
         return []
-    return node.locals.keys()
+    return node.locals.keys()  # type: ignore[no-any-return]
 
 
 @_node_names.register(nodes.ClassDef)
 @_node_names.register(astroid.Instance)
-def _(node):
+def _(node: nodes.ClassDef | bases.Instance) -> Iterable[str]:
     values = itertools.chain(node.instance_attrs.keys(), node.locals.keys())
 
     try:
@@ -193,7 +153,7 @@ def _(node):
     return itertools.chain(values, other_values)
 
 
-def _string_distance(seq1, seq2):
+def _string_distance(seq1: str, seq2: str) -> int:
     seq2_length = len(seq2)
 
     row = list(range(1, seq2_length + 1)) + [0]
@@ -211,20 +171,25 @@ def _string_distance(seq1, seq2):
     return row[seq2_length - 1]
 
 
-def _similar_names(owner, attrname, distance_threshold, max_choices):
-    """Given an owner and a name, try to find similar names
+def _similar_names(
+    owner: SuccessfulInferenceResult,
+    attrname: str | None,
+    distance_threshold: int,
+    max_choices: int,
+) -> list[str]:
+    """Given an owner and a name, try to find similar names.
 
     The similar names are searched given a distance metric and only
     a given number of choices will be returned.
     """
-    possible_names = []
+    possible_names: list[tuple[str, int]] = []
     names = _node_names(owner)
 
     for name in names:
         if name == attrname:
             continue
 
-        distance = _string_distance(attrname, name)
+        distance = _string_distance(attrname or "", name)
         if distance <= distance_threshold:
             possible_names.append((name, distance))
 
@@ -239,7 +204,12 @@ def _similar_names(owner, attrname, distance_threshold, max_choices):
     return sorted(picked)
 
 
-def _missing_member_hint(owner, attrname, distance_threshold, max_choices):
+def _missing_member_hint(
+    owner: SuccessfulInferenceResult,
+    attrname: str | None,
+    distance_threshold: int,
+    max_choices: int,
+) -> str:
     names = _similar_names(owner, attrname, distance_threshold, max_choices)
     if not names:
         # No similar name.
@@ -247,18 +217,18 @@ def _missing_member_hint(owner, attrname, distance_threshold, max_choices):
 
     names = [repr(name) for name in names]
     if len(names) == 1:
-        names = ", ".join(names)
+        names_hint = ", ".join(names)
     else:
-        names = f"one of {', '.join(names[:-1])} or {names[-1]}"
+        names_hint = f"one of {', '.join(names[:-1])} or {names[-1]}"
 
-    return f"; maybe {names}?"
+    return f"; maybe {names_hint}?"
 
 
-MSGS = {
+MSGS: dict[str, MessageDefinitionTuple] = {
     "E1101": (
         "%s %r has no %r member%s",
         "no-member",
-        "Used when a variable is accessed for an unexistent member.",
+        "Used when a variable is accessed for a nonexistent member.",
         {"old_names": [("E1103", "maybe-no-member")]},
     ),
     "I1101": (
@@ -387,12 +357,6 @@ MSGS = {
         "as a metaclass, something which might be invalid for using as "
         "a metaclass.",
     ),
-    "E1140": (
-        "Dict key is unhashable",
-        "unhashable-dict-key",
-        "Emitted when a dict key is not hashable "
-        "(i.e. doesn't define __hash__ method).",
-    ),
     "E1141": (
         "Unpacking a dictionary in iteration without calling .items()",
         "dict-iter-missing-items",
@@ -402,6 +366,19 @@ MSGS = {
         "'await' should be used within an async function",
         "await-outside-async",
         "Emitted when await is used outside an async function.",
+    ),
+    "E1143": (
+        "'%s' is unhashable and can't be used as a %s in a %s",
+        "unhashable-member",
+        "Emitted when a dict key or set member is not hashable "
+        "(i.e. doesn't define __hash__ method).",
+        {"old_names": [("E1140", "unhashable-dict-key")]},
+    ),
+    "E1144": (
+        "Slice step cannot be 0",
+        "invalid-slice-step",
+        "Used when a slice step is 0 and the object doesn't implement "
+        "a custom __getitem__ method.",
     ),
     "W1113": (
         "Keyword argument before variable positional arguments list "
@@ -444,13 +421,13 @@ SEQUENCE_TYPES = {
 
 
 def _emit_no_member(
-    node,
-    owner,
-    owner_name,
+    node: nodes.Attribute | nodes.AssignAttr | nodes.DelAttr,
+    owner: InferenceResult,
+    owner_name: str | None,
     mixin_class_rgx: Pattern[str],
-    ignored_mixins=True,
-    ignored_none=True,
-):
+    ignored_mixins: bool = True,
+    ignored_none: bool = True,
+) -> bool:
     """Try to see if no-member should be emitted for the given owner.
 
     The following cases are ignored:
@@ -463,7 +440,7 @@ def _emit_no_member(
           AttributeError, Exception or bare except.
         * The node is guarded behind and `IF` or `IFExp` node
     """
-    # pylint: disable=too-many-return-statements
+    # pylint: disable = too-many-return-statements, too-many-branches
     if node_ignores_exception(node, AttributeError):
         return False
     if ignored_none and isinstance(owner, nodes.Const) and owner.value is None:
@@ -486,7 +463,9 @@ def _emit_no_member(
                 return False
             if metaclass:
                 # Renamed in Python 3.10 to `EnumType`
-                return metaclass.qname() in {"enum.EnumMeta", "enum.EnumType"}
+                if metaclass.qname() in {"enum.EnumMeta", "enum.EnumType"}:
+                    return not _enum_has_attribute(owner, node)
+                return False
             return False
         if not has_known_bases(owner):
             return False
@@ -520,21 +499,12 @@ def _emit_no_member(
                 return False
         except astroid.NotFoundError:
             return True
-    if (
-        owner.parent
-        and isinstance(owner.parent, nodes.ClassDef)
-        and owner.parent.name == "EnumMeta"
-        and owner_name == "__members__"
-        and node.attrname in {"items", "values", "keys"}
-    ):
-        # Avoid false positive on Enum.__members__.{items(), values, keys}
-        # See https://github.com/PyCQA/pylint/issues/4123
-        return False
+
     # Don't emit no-member if guarded behind `IF` or `IFExp`
     #   * Walk up recursively until if statement is found.
     #   * Check if condition can be inferred as `Const`,
     #       would evaluate as `False`,
-    #       and wheater the node is part of the `body`.
+    #       and whether the node is part of the `body`.
     #   * Continue checking until scope of node is reached.
     scope: nodes.NodeNG = node.scope()
     node_origin: nodes.NodeNG = node
@@ -558,16 +528,96 @@ def _emit_no_member(
     return True
 
 
-def _determine_callable(callable_obj):
+def _get_all_attribute_assignments(
+    node: nodes.FunctionDef, name: str | None = None
+) -> set[str]:
+    attributes: set[str] = set()
+    for child in node.nodes_of_class((nodes.Assign, nodes.AnnAssign)):
+        targets = []
+        if isinstance(child, nodes.Assign):
+            targets = child.targets
+        elif isinstance(child, nodes.AnnAssign):
+            targets = [child.target]
+        for assign_target in targets:
+            if isinstance(assign_target, nodes.Tuple):
+                targets.extend(assign_target.elts)
+                continue
+            if (
+                isinstance(assign_target, nodes.AssignAttr)
+                and isinstance(assign_target.expr, nodes.Name)
+                and (name is None or assign_target.expr.name == name)
+            ):
+                attributes.add(assign_target.attrname)
+    return attributes
+
+
+def _enum_has_attribute(
+    owner: astroid.Instance | nodes.ClassDef, node: nodes.Attribute
+) -> bool:
+    if isinstance(owner, astroid.Instance):
+        enum_def = next(
+            (b.parent for b in owner.bases if isinstance(b.parent, nodes.ClassDef)),
+            None,
+        )
+
+        if enum_def is None:
+            # We don't inherit from anything, so try to find the parent
+            # class definition and roll with that
+            enum_def = node
+            while enum_def is not None and not isinstance(enum_def, nodes.ClassDef):
+                enum_def = enum_def.parent
+
+        # If this blows, something is clearly wrong
+        assert enum_def is not None, "enum_def unexpectedly None"
+    else:
+        enum_def = owner
+
+    # Find __new__ and __init__
+    dunder_new = next((m for m in enum_def.methods() if m.name == "__new__"), None)
+    dunder_init = next((m for m in enum_def.methods() if m.name == "__init__"), None)
+
+    enum_attributes: set[str] = set()
+
+    # Find attributes defined in __new__
+    if dunder_new:
+        # Get the object returned in __new__
+        returned_obj_name = next(
+            (c.value for c in dunder_new.get_children() if isinstance(c, nodes.Return)),
+            None,
+        )
+        if isinstance(returned_obj_name, nodes.Name):
+            # Find all attribute assignments to the returned object
+            enum_attributes |= _get_all_attribute_assignments(
+                dunder_new, returned_obj_name.name
+            )
+
+    # Find attributes defined in __init__
+    if dunder_init and dunder_init.body and dunder_init.args:
+        # Grab the name referring to `self` from the function def
+        enum_attributes |= _get_all_attribute_assignments(
+            dunder_init, dunder_init.args.arguments[0].name
+        )
+
+    return node.attrname in enum_attributes
+
+
+def _determine_callable(
+    callable_obj: nodes.NodeNG,
+) -> tuple[CallableObjects, int, str]:
+    # TODO: The typing of the second return variable is actually Literal[0,1]
+    # We need typing on astroid.NodeNG.implicit_parameters for this
+    # TODO: The typing of the third return variable can be narrowed to a Literal
+    # We need typing on astroid.NodeNG.type for this
+
     # Ordering is important, since BoundMethod is a subclass of UnboundMethod,
     # and Function inherits Lambda.
     parameters = 0
     if hasattr(callable_obj, "implicit_parameters"):
         parameters = callable_obj.implicit_parameters()
-    if isinstance(callable_obj, astroid.BoundMethod):
+    if isinstance(callable_obj, bases.BoundMethod):
         # Bound methods have an extra implicit 'self' argument.
         return callable_obj, parameters, callable_obj.type
-    if isinstance(callable_obj, astroid.UnboundMethod):
+    if isinstance(callable_obj, bases.UnboundMethod):
         return callable_obj, parameters, "unbound method"
     if isinstance(callable_obj, nodes.FunctionDef):
         return callable_obj, parameters, callable_obj.type
@@ -593,7 +643,6 @@ def _determine_callable(callable_obj):
                 # Use the last definition of __init__.
                 callable_obj = callable_obj.local_attr("__init__")[-1]
             except astroid.NotFoundError as e:
-                # do nothing, covered by no-init.
                 raise ValueError from e
         else:
             callable_obj = new
@@ -606,7 +655,11 @@ def _determine_callable(callable_obj):
     raise ValueError
 
 
-def _has_parent_of_type(node, node_type, statement):
+def _has_parent_of_type(
+    node: nodes.Call,
+    node_type: nodes.Keyword | nodes.Starred,
+    statement: nodes.Statement,
+) -> bool:
     """Check if the given node has a parent of the given type."""
     parent = node.parent
     while not isinstance(parent, node_type) and statement.parent_of(parent):
@@ -614,11 +667,15 @@ def _has_parent_of_type(node, node_type, statement):
     return isinstance(parent, node_type)
 
 
-def _no_context_variadic_keywords(node, scope):
-    statement = node.statement()
-    variadics = ()
+def _no_context_variadic_keywords(node: nodes.Call, scope: nodes.Lambda) -> bool:
+    statement = node.statement(future=True)
+    variadics = []
 
-    if isinstance(scope, nodes.Lambda) and not isinstance(scope, nodes.FunctionDef):
+    if (
+        isinstance(scope, nodes.Lambda)
+        and not isinstance(scope, nodes.FunctionDef)
+        or isinstance(statement, nodes.With)
+    ):
         variadics = list(node.keywords or []) + node.kwargs
     elif isinstance(statement, (nodes.Return, nodes.Expr, nodes.Assign)) and isinstance(
         statement.value, nodes.Call
@@ -629,23 +686,18 @@ def _no_context_variadic_keywords(node, scope):
     return _no_context_variadic(node, scope.args.kwarg, nodes.Keyword, variadics)
 
 
-def _no_context_variadic_positional(node, scope):
-    variadics = ()
-    if isinstance(scope, nodes.Lambda) and not isinstance(scope, nodes.FunctionDef):
-        variadics = node.starargs + node.kwargs
-    else:
-        statement = node.statement()
-        if isinstance(
-            statement, (nodes.Expr, nodes.Return, nodes.Assign)
-        ) and isinstance(statement.value, nodes.Call):
-            call = statement.value
-            variadics = call.starargs + call.kwargs
-
+def _no_context_variadic_positional(node: nodes.Call, scope: nodes.Lambda) -> bool:
+    variadics = node.starargs + node.kwargs
     return _no_context_variadic(node, scope.args.vararg, nodes.Starred, variadics)
 
 
-def _no_context_variadic(node, variadic_name, variadic_type, variadics):
-    """Verify if the given call node has variadic nodes without context
+def _no_context_variadic(
+    node: nodes.Call,
+    variadic_name: str | None,
+    variadic_type: nodes.Keyword | nodes.Starred,
+    variadics: list[nodes.Keyword | nodes.Starred],
+) -> bool:
+    """Verify if the given call node has variadic nodes without context.
 
     This is a workaround for handling cases of nested call functions
     which don't have the specific call context at hand.
@@ -659,7 +711,7 @@ def _no_context_variadic(node, variadic_name, variadic_type, variadics):
     is_in_lambda_scope = not isinstance(scope, nodes.FunctionDef) and isinstance(
         scope, nodes.Lambda
     )
-    statement = node.statement()
+    statement = node.statement(future=True)
     for name in statement.nodes_of_class(nodes.Name):
         if name.name != variadic_name:
             continue
@@ -677,7 +729,7 @@ def _no_context_variadic(node, variadic_name, variadic_type, variadics):
             # so we need to go the lambda instead
             inferred_statement = inferred.parent.parent
         else:
-            inferred_statement = inferred.statement()
+            inferred_statement = inferred.statement(future=True)
 
         if not length and isinstance(inferred_statement, nodes.Lambda):
             is_in_starred_context = _has_parent_of_type(node, variadic_type, statement)
@@ -690,20 +742,15 @@ def _no_context_variadic(node, variadic_name, variadic_type, variadics):
     return False
 
 
-def _is_invalid_metaclass(metaclass):
-    try:
-        mro = metaclass.mro()
-    except NotImplementedError:
-        # Cannot have a metaclass which is not a newstyle class.
-        return True
-    else:
-        if not any(is_builtin_object(cls) and cls.name == "type" for cls in mro):
-            return True
-    return False
+def _is_invalid_metaclass(metaclass: nodes.ClassDef) -> bool:
+    mro = metaclass.mro()
+    return not any(is_builtin_object(cls) and cls.name == "type" for cls in mro)
 
 
-def _infer_from_metaclass_constructor(cls, func: nodes.FunctionDef):
-    """Try to infer what the given *func* constructor is building
+def _infer_from_metaclass_constructor(
+    cls: nodes.ClassDef, func: nodes.FunctionDef
+) -> InferenceResult | None:
+    """Try to infer what the given *func* constructor is building.
 
     :param astroid.FunctionDef func:
         A metaclass constructor. Metaclass definitions can be
@@ -739,14 +786,15 @@ def _infer_from_metaclass_constructor(cls, func: nodes.FunctionDef):
     return inferred or None
 
 
-def _is_c_extension(module_node):
+def _is_c_extension(module_node: InferenceResult) -> bool:
     return (
-        not astroid.modutils.is_standard_module(module_node.name)
+        isinstance(module_node, nodes.Module)
+        and not astroid.modutils.is_standard_module(module_node.name)
         and not module_node.fully_defined()
     )
 
 
-def _is_invalid_isinstance_type(arg):
+def _is_invalid_isinstance_type(arg: nodes.NodeNG) -> bool:
     # Return True if we are sure that arg is not a type
     inferred = utils.safe_infer(arg)
     if not inferred:
@@ -762,15 +810,12 @@ def _is_invalid_isinstance_type(arg):
 
 
 class TypeChecker(BaseChecker):
-    """try to find bugs in the code using type inference"""
-
-    __implements__ = (IAstroidChecker,)
+    """Try to find bugs in the code using type inference."""
 
     # configuration section name
     name = "typecheck"
     # messages
     msgs = MSGS
-    priority = -1
     # configuration options
     options = (
         (
@@ -794,8 +839,7 @@ class TypeChecker(BaseChecker):
                 "default": ".*[Mm]ixin",
                 "type": "regexp",
                 "metavar": "<regexp>",
-                "help": "Regex pattern to define which classes are considered mixins "
-                "ignore-mixin-members is set to 'yes'",
+                "help": "Regex pattern to define which classes are considered mixins.",
             },
         ),
         (
@@ -807,6 +851,21 @@ class TypeChecker(BaseChecker):
                 "help": "Tells whether missing members accessed in mixin "
                 "class should be ignored. A class is considered mixin if its name matches "
                 "the mixin-class-rgx option.",
+                "kwargs": {"new_names": ["ignore-checks-for-mixin"]},
+            },
+        ),
+        (
+            "ignored-checks-for-mixins",
+            {
+                "default": [
+                    "no-member",
+                    "not-async-context-manager",
+                    "not-context-manager",
+                    "attribute-defined-outside-init",
+                ],
+                "type": "csv",
+                "metavar": "<list of messages names>",
+                "help": "List of symbolic message names to ignore for Mixin members.",
             },
         ),
         (
@@ -819,27 +878,18 @@ class TypeChecker(BaseChecker):
                 "of the attribute is inferred to be None.",
             },
         ),
-        (
-            "ignored-modules",
-            {
-                "default": (),
-                "type": "csv",
-                "metavar": "<module names>",
-                "help": "List of module names for which member attributes "
-                "should not be checked (useful for modules/projects "
-                "where namespaces are manipulated during runtime and "
-                "thus existing member attributes cannot be "
-                "deduced by static analysis). It supports qualified "
-                "module names, as well as Unix pattern matching.",
-            },
-        ),
         # the defaults here are *stdlib* names that (almost) always
         # lead to false positives, since their idiomatic use is
         # 'too dynamic' for pylint to grok.
         (
             "ignored-classes",
             {
-                "default": ("optparse.Values", "thread._local", "_thread._local"),
+                "default": (
+                    "optparse.Values",
+                    "thread._local",
+                    "_thread._local",
+                    "argparse.Namespace",
+                ),
                 "type": "csv",
                 "metavar": "<members names>",
                 "help": "List of class names for which member attributes "
@@ -914,22 +964,22 @@ accessed. Python regular expressions are accepted.",
     )
 
     def open(self) -> None:
-        py_version = get_global_option(self, "py-version")
+        py_version = self.linter.config.py_version
         self._py310_plus = py_version >= (3, 10)
-        self._mixin_class_rgx = get_global_option(self, "mixin-class-rgx")
+        self._mixin_class_rgx = self.linter.config.mixin_class_rgx
 
-    @astroid.decorators.cachedproperty
-    def _suggestion_mode(self):
-        return get_global_option(self, "suggestion-mode", default=True)
+    @cached_property
+    def _suggestion_mode(self) -> bool:
+        return self.linter.config.suggestion_mode  # type: ignore[no-any-return]
 
-    @astroid.decorators.cachedproperty
-    def _compiled_generated_members(self) -> Tuple[Pattern, ...]:
+    @cached_property
+    def _compiled_generated_members(self) -> tuple[Pattern[str], ...]:
         # do this lazily since config not fully initialized in __init__
         # generated_members may contain regular expressions
         # (surrounded by quote `"` and followed by a comma `,`)
         # REQUEST,aq_parent,"[a-zA-Z]+_set{1,2}"' =>
         # ('REQUEST', 'aq_parent', '[a-zA-Z]+_set{1,2}')
-        generated_members = self.config.generated_members
+        generated_members = self.linter.config.generated_members
         if isinstance(generated_members, str):
             gen = shlex.shlex(generated_members)
             gen.whitespace += ","
@@ -937,7 +987,7 @@ accessed. Python regular expressions are accepted.",
             generated_members = tuple(tok.strip('"') for tok in gen)
         return tuple(re.compile(exp) for exp in generated_members)
 
-    @check_messages("keyword-arg-before-vararg")
+    @only_required_for_messages("keyword-arg-before-vararg")
     def visit_functiondef(self, node: nodes.FunctionDef) -> None:
         # check for keyword arg before varargs
         if node.args.vararg and node.args.defaults:
@@ -945,17 +995,17 @@ accessed. Python regular expressions are accepted.",
 
     visit_asyncfunctiondef = visit_functiondef
 
-    @check_messages("invalid-metaclass")
+    @only_required_for_messages("invalid-metaclass")
     def visit_classdef(self, node: nodes.ClassDef) -> None:
-        def _metaclass_name(metaclass):
+        def _metaclass_name(metaclass: InferenceResult) -> str | None:
             # pylint: disable=unidiomatic-typecheck
             if isinstance(metaclass, (nodes.ClassDef, nodes.FunctionDef)):
-                return metaclass.name
+                return metaclass.name  # type: ignore[no-any-return]
             if type(metaclass) is bases.Instance:
                 # Really do mean type, not isinstance, since subclasses of bases.Instance
                 # like Const or Dict should use metaclass.as_string below.
                 return str(metaclass)
-            return metaclass.as_string()
+            return metaclass.as_string()  # type: ignore[no-any-return]
 
         metaclass = node.declared_metaclass()
         if not metaclass:
@@ -985,9 +1035,12 @@ accessed. Python regular expressions are accepted.",
     def visit_delattr(self, node: nodes.DelAttr) -> None:
         self.visit_attribute(node)
 
-    @check_messages("no-member", "c-extension-no-member")
-    def visit_attribute(self, node: nodes.Attribute) -> None:
-        """check that the accessed attribute exists
+    # pylint: disable = too-many-branches
+    @only_required_for_messages("no-member", "c-extension-no-member")
+    def visit_attribute(
+        self, node: nodes.Attribute | nodes.AssignAttr | nodes.DelAttr
+    ) -> None:
+        """Check that the accessed attribute exists.
 
         to avoid too much false positives for now, we'll consider the code as
         correct if a single of the inferred nodes has the accessed attribute.
@@ -1001,22 +1054,27 @@ accessed. Python regular expressions are accepted.",
         ):
             return
 
+        if is_postponed_evaluation_enabled(node) and is_node_in_type_annotation_context(
+            node
+        ):
+            return
+
         try:
             inferred = list(node.expr.infer())
         except astroid.InferenceError:
             return
 
         # list of (node, nodename) which are missing the attribute
-        missingattr = set()
+        missingattr: set[tuple[SuccessfulInferenceResult, str | None]] = set()
 
-        non_opaque_inference_results = [
+        non_opaque_inference_results: list[SuccessfulInferenceResult] = [
             owner
             for owner in inferred
             if owner is not astroid.Uninferable and not isinstance(owner, nodes.Unknown)
         ]
         if (
             len(non_opaque_inference_results) != len(inferred)
-            and self.config.ignore_on_opaque_inference
+            and self.linter.config.ignore_on_opaque_inference
         ):
             # There is an ambiguity in the inference. Since we can't
             # make sure that we won't emit a false positive, we just stop
@@ -1025,7 +1083,10 @@ accessed. Python regular expressions are accepted.",
         for owner in non_opaque_inference_results:
             name = getattr(owner, "name", None)
             if _is_owner_ignored(
-                owner, name, self.config.ignored_classes, self.config.ignored_modules
+                owner,
+                name,
+                self.linter.config.ignored_classes,
+                self.linter.config.ignored_modules,
             ):
                 continue
 
@@ -1036,13 +1097,7 @@ accessed. Python regular expressions are accepted.",
                 return
 
             try:
-                if not [
-                    n
-                    for n in owner.getattr(node.attrname)
-                    if not isinstance(n.statement(), nodes.AugAssign)
-                ]:
-                    missingattr.add((owner, name))
-                    continue
+                attr_nodes = owner.getattr(node.attrname)
             except AttributeError:
                 continue
             except astroid.DuplicateBasesError:
@@ -1060,12 +1115,35 @@ accessed. Python regular expressions are accepted.",
                     owner,
                     name,
                     self._mixin_class_rgx,
-                    ignored_mixins=self.config.ignore_mixin_members,
-                    ignored_none=self.config.ignore_none,
+                    ignored_mixins=(
+                        "no-member" in self.linter.config.ignored_checks_for_mixins
+                    ),
+                    ignored_none=self.linter.config.ignore_none,
                 ):
                     continue
                 missingattr.add((owner, name))
                 continue
+            else:
+                for attr_node in attr_nodes:
+                    attr_parent = attr_node.parent
+                    # Skip augmented assignments
+                    try:
+                        if isinstance(
+                            attr_node.statement(future=True), nodes.AugAssign
+                        ) or (
+                            isinstance(attr_parent, nodes.Assign)
+                            and utils.is_augmented_assign(attr_parent)[0]
+                        ):
+                            continue
+                    except astroid.exceptions.StatementMissing:
+                        break
+                    # Skip self-referencing assignments
+                    if attr_parent is node.parent:
+                        continue
+                    break
+                else:
+                    missingattr.add((owner, name))
+                    continue
             # stop on the first found
             break
         else:
@@ -1089,7 +1167,11 @@ accessed. Python regular expressions are accepted.",
                     confidence=INFERENCE,
                 )
 
-    def _get_nomember_msgid_hint(self, node, owner):
+    def _get_nomember_msgid_hint(
+        self,
+        node: nodes.Attribute | nodes.AssignAttr | nodes.DelAttr,
+        owner: SuccessfulInferenceResult,
+    ) -> tuple[Literal["c-extension-no-member", "no-member"], str]:
         suggestions_are_possible = self._suggestion_mode and isinstance(
             owner, nodes.Module
         )
@@ -1098,33 +1180,31 @@ accessed. Python regular expressions are accepted.",
             hint = ""
         else:
             msg = "no-member"
-            if self.config.missing_member_hint:
+            if self.linter.config.missing_member_hint:
                 hint = _missing_member_hint(
                     owner,
                     node.attrname,
-                    self.config.missing_member_hint_distance,
-                    self.config.missing_member_max_choices,
+                    self.linter.config.missing_member_hint_distance,
+                    self.linter.config.missing_member_max_choices,
                 )
             else:
                 hint = ""
-        return msg, hint
+        return msg, hint  # type: ignore[return-value]
 
-    @check_messages(
+    @only_required_for_messages(
         "assignment-from-no-return",
         "assignment-from-none",
         "non-str-assignment-to-dunder-name",
     )
     def visit_assign(self, node: nodes.Assign) -> None:
-        """
-        Process assignments in the AST.
-        """
+        """Process assignments in the AST."""
 
         self._check_assignment_from_function_call(node)
         self._check_dundername_is_string(node)
 
-    def _check_assignment_from_function_call(self, node):
-        """check that if assigning to a function call, the function is
-        possibly returning something valuable
+    def _check_assignment_from_function_call(self, node: nodes.Assign) -> None:
+        """When assigning to a function call, check that the function returns a valid
+        value.
         """
         if not isinstance(node.value, nodes.Call):
             return
@@ -1134,7 +1214,7 @@ accessed. Python regular expressions are accepted.",
         if not isinstance(function_node, funcs):
             return
 
-        # Unwrap to get the actual function object
+        # Unwrap to get the actual function node object
         if isinstance(function_node, astroid.BoundMethod) and isinstance(
             function_node._proxied, astroid.UnboundMethod
         ):
@@ -1142,47 +1222,67 @@ accessed. Python regular expressions are accepted.",
 
         # Make sure that it's a valid function that we can analyze.
         # Ordered from less expensive to more expensive checks.
-        # pylint: disable=too-many-boolean-expressions
         if (
             not function_node.is_function
-            or isinstance(function_node, nodes.AsyncFunctionDef)
             or function_node.decorators
-            or function_node.is_generator()
-            or function_node.is_abstract(pass_is_abstract=False)
-            or utils.is_error(function_node)
-            or not function_node.root().fully_defined()
+            or self._is_ignored_function(function_node)
         ):
             return
 
-        returns = list(
+        # Fix a false-negative for list.sort(), see issue #5722
+        if self._is_list_sort_method(node.value):
+            self.add_message("assignment-from-none", node=node, confidence=INFERENCE)
+            return
+
+        if not function_node.root().fully_defined():
+            return
+
+        return_nodes = list(
             function_node.nodes_of_class(nodes.Return, skip_klass=nodes.FunctionDef)
         )
-        if not returns:
+        if not return_nodes:
             self.add_message("assignment-from-no-return", node=node)
         else:
-            for rnode in returns:
+            for ret_node in return_nodes:
                 if not (
-                    isinstance(rnode.value, nodes.Const)
-                    and rnode.value.value is None
-                    or rnode.value is None
+                    isinstance(ret_node.value, nodes.Const)
+                    and ret_node.value.value is None
+                    or ret_node.value is None
                 ):
                     break
             else:
                 self.add_message("assignment-from-none", node=node)
 
-    def _check_dundername_is_string(self, node):
-        """
-        Check a string is assigned to self.__name__
-        """
+    @staticmethod
+    def _is_ignored_function(
+        function_node: nodes.FunctionDef | bases.UnboundMethod,
+    ) -> bool:
+        return (
+            isinstance(function_node, nodes.AsyncFunctionDef)
+            or utils.is_error(function_node)
+            or function_node.is_generator()
+            or function_node.is_abstract(pass_is_abstract=False)
+        )
 
-        # Check the left hand side of the assignment is <something>.__name__
+    @staticmethod
+    def _is_list_sort_method(node: nodes.Call) -> bool:
+        return (
+            isinstance(node.func, nodes.Attribute)
+            and node.func.attrname == "sort"
+            and isinstance(utils.safe_infer(node.func.expr), nodes.List)
+        )
+
+    def _check_dundername_is_string(self, node: nodes.Assign) -> None:
+        """Check a string is assigned to self.__name__."""
+
+        # Check the left-hand side of the assignment is <something>.__name__
         lhs = node.targets[0]
         if not isinstance(lhs, nodes.AssignAttr):
             return
         if not lhs.attrname == "__name__":
             return
 
-        # If the right hand side is not a string
+        # If the right-hand side is not a string
         rhs = node.value
         if isinstance(rhs, nodes.Const) and isinstance(rhs.value, str):
             return
@@ -1193,9 +1293,8 @@ accessed. Python regular expressions are accepted.",
             # Add the message
             self.add_message("non-str-assignment-to-dunder-name", node=node)
 
-    def _check_uninferable_call(self, node):
-        """
-        Check that the given uninferable Call node does not
+    def _check_uninferable_call(self, node: nodes.Call) -> None:
+        """Check that the given uninferable Call node does not
         call an actual function.
         """
         if not isinstance(node.func, nodes.Attribute):
@@ -1229,23 +1328,32 @@ accessed. Python regular expressions are accepted.",
             # Decorated, see if it is decorated with a property.
             # Also, check the returns and see if they are callable.
             if decorated_with_property(attr):
-
                 try:
-                    all_returns_are_callable = all(
-                        return_node.callable() or return_node is astroid.Uninferable
-                        for return_node in attr.infer_call_result(node)
-                    )
+                    call_results = list(attr.infer_call_result(node))
                 except astroid.InferenceError:
                     continue
 
-                if not all_returns_are_callable:
-                    self.add_message(
-                        "not-callable", node=node, args=node.func.as_string()
-                    )
-                    break
+                if all(
+                    return_node is astroid.Uninferable for return_node in call_results
+                ):
+                    # We were unable to infer return values of the call, skipping
+                    continue
 
-    def _check_argument_order(self, node, call_site, called, called_param_names):
+                if any(return_node.callable() for return_node in call_results):
+                    # Only raise this issue if *all* the inferred values are not callable
+                    continue
+
+                self.add_message("not-callable", node=node, args=node.func.as_string())
+
+    def _check_argument_order(
+        self,
+        node: nodes.Call,
+        call_site: arguments.CallSite,
+        called: CallableObjects,
+        called_param_names: list[str | None],
+    ) -> None:
         """Match the supplied argument names against the function parameters.
+
         Warn if some argument names are not in the same order as they are in
         the function signature.
         """
@@ -1262,7 +1370,7 @@ accessed. Python regular expressions are accepted.",
             # extract argument names, if they have names
             calling_parg_names = [p.name for p in call_site.positional_arguments]
 
-            # Additionally get names of keyword arguments to use in a full match
+            # Additionally, get names of keyword arguments to use in a full match
             # against parameters
             calling_kwarg_names = [
                 arg.name for arg in call_site.keyword_arguments.values()
@@ -1283,7 +1391,7 @@ accessed. Python regular expressions are accepted.",
         if calling_parg_names != called_param_names[: len(calling_parg_names)]:
             self.add_message("arguments-out-of-order", node=node, args=())
 
-    def _check_isinstance_args(self, node):
+    def _check_isinstance_args(self, node: nodes.Call) -> None:
         if len(node.args) != 2:
             # isinstance called with wrong number of args
             return
@@ -1292,32 +1400,14 @@ accessed. Python regular expressions are accepted.",
         if _is_invalid_isinstance_type(second_arg):
             self.add_message("isinstance-second-argument-not-valid-type", node=node)
 
-    # pylint: disable=too-many-branches,too-many-locals
-    @check_messages(*(list(MSGS.keys())))
+    # pylint: disable = too-many-branches, too-many-locals, too-many-statements
     def visit_call(self, node: nodes.Call) -> None:
-        """check that called functions/methods are inferred to callable objects,
-        and that the arguments passed to the function match the parameters in
-        the inferred function's definition
+        """Check that called functions/methods are inferred to callable objects,
+        and that passed arguments match the parameters in the inferred function.
         """
         called = safe_infer(node.func)
-        # only function, generator and object defining __call__ are allowed
-        # Ignore instances of descriptors since astroid cannot properly handle them
-        # yet
-        if called and not called.callable():
-            if isinstance(called, astroid.Instance) and (
-                not has_known_bases(called)
-                or (
-                    called.parent is not None
-                    and isinstance(called.scope(), nodes.ClassDef)
-                    and "__get__" in called.locals
-                )
-            ):
-                # Don't emit if we can't make sure this object is callable.
-                pass
-            else:
-                self.add_message("not-callable", node=node, args=node.func.as_string())
-        else:
-            self._check_uninferable_call(node)
+
+        self._check_not_callable(node, called)
 
         try:
             called, implicit_args, callable_name = _determine_callable(called)
@@ -1352,7 +1442,7 @@ accessed. Python regular expressions are accepted.",
 
         # Has the function signature changed in ways we cannot reliably detect?
         if hasattr(called, "decorators") and decorated_with(
-            called, self.config.signature_mutators
+            called, self.linter.config.signature_mutators
         ):
             return
 
@@ -1381,10 +1471,23 @@ accessed. Python regular expressions are accepted.",
         keyword_args += list(already_filled_keywords)
         num_positional_args += implicit_args + already_filled_positionals
 
+        # Decrement `num_positional_args` by 1 when a function call is assigned to a class attribute
+        # inside the class where the function is defined.
+        # This avoids emitting `too-many-function-args` since `num_positional_args`
+        # includes an implicit `self` argument which is not present in `called.args`.
+        if (
+            isinstance(node.frame(), nodes.ClassDef)
+            and isinstance(node.parent, (nodes.Assign, nodes.AnnAssign))
+            and isinstance(called, nodes.FunctionDef)
+            and called in node.frame().body
+            and num_positional_args > 0
+        ):
+            num_positional_args -= 1
+
         # Analyze the list of formal parameters.
         args = list(itertools.chain(called.args.posonlyargs or (), called.args.args))
         num_mandatory_parameters = len(args) - len(called.args.defaults)
-        parameters: List[List[Any]] = []
+        parameters: list[tuple[tuple[str | None, nodes.NodeNG | None], bool]] = []
         parameter_name_to_index = {}
         for i, arg in enumerate(args):
             if isinstance(arg, nodes.Tuple):
@@ -1401,7 +1504,7 @@ accessed. Python regular expressions are accepted.",
                 defval = called.args.defaults[i - num_mandatory_parameters]
             else:
                 defval = None
-            parameters.append([(name, defval), False])
+            parameters.append(((name, defval), False))
 
         kwparams = {}
         for i, arg in enumerate(called.args.kwonlyargs):
@@ -1419,7 +1522,7 @@ accessed. Python regular expressions are accepted.",
         # 1. Match the positional arguments.
         for i in range(num_positional_args):
             if i < len(parameters):
-                parameters[i][1] = True
+                parameters[i] = (parameters[i][0], True)
             elif called.args.vararg is not None:
                 # The remaining positional arguments get assigned to the *args
                 # parameter.
@@ -1438,7 +1541,7 @@ accessed. Python regular expressions are accepted.",
                 if parameters[i][1]:
                     # Duplicate definition of function parameter.
 
-                    # Might be too hardcoded, but this can actually
+                    # Might be too hard-coded, but this can actually
                     # happen when using str.format and `self` is passed
                     # by keyword argument, as in `.format(self=self)`.
                     # It's perfectly valid to so, so we're just skipping
@@ -1450,7 +1553,7 @@ accessed. Python regular expressions are accepted.",
                             args=(keyword, callable_name),
                         )
                 else:
-                    parameters[i][1] = True
+                    parameters[i] = (parameters[i][0], True)
             elif keyword in kwparams:
                 if kwparams[keyword][1]:
                     # Duplicate definition of function parameter.
@@ -1464,6 +1567,10 @@ accessed. Python regular expressions are accepted.",
             elif called.args.kwarg is not None:
                 # The keyword argument gets assigned to the **kwargs parameter.
                 pass
+            elif isinstance(
+                called, nodes.FunctionDef
+            ) and self._keyword_argument_is_in_all_decorator_returns(called, keyword):
+                pass
             elif not overload_function:
                 # Unexpected keyword argument.
                 self.add_message(
@@ -1472,11 +1579,11 @@ accessed. Python regular expressions are accepted.",
 
         # 3. Match the **kwargs, if any.
         if node.kwargs:
-            for i, [(name, defval), assigned] in enumerate(parameters):
+            for i, [(name, _defval), _assigned] in enumerate(parameters):
                 # Assume that *kwargs provides values for all remaining
                 # unassigned named parameters.
                 if name is not None:
-                    parameters[i][1] = True
+                    parameters[i] = (parameters[i][0], True)
                 else:
                     # **kwargs can't assign to tuples.
                     pass
@@ -1501,9 +1608,54 @@ accessed. Python regular expressions are accepted.",
                 and not has_no_context_keywords_variadic
                 and not overload_function
             ):
-                self.add_message("missing-kwoa", node=node, args=(name, callable_name))
+                self.add_message(
+                    "missing-kwoa",
+                    node=node,
+                    args=(name, callable_name),
+                    confidence=INFERENCE,
+                )
 
-    def _check_invalid_sequence_index(self, subscript: nodes.Subscript):
+    @staticmethod
+    def _keyword_argument_is_in_all_decorator_returns(
+        func: nodes.FunctionDef, keyword: str
+    ) -> bool:
+        """Check if the keyword argument exists in all signatures of the
+        return values of all decorators of the function.
+        """
+        if not func.decorators:
+            return False
+
+        for decorator in func.decorators.nodes:
+            inferred = safe_infer(decorator)
+
+            # If we can't infer the decorator we assume it satisfies consumes
+            # the keyword, so we don't raise false positives
+            if not inferred:
+                return True
+
+            # We only check arguments of function decorators
+            if not isinstance(inferred, nodes.FunctionDef):
+                return False
+
+            for return_value in inferred.infer_call_result():
+                # infer_call_result() returns nodes.Const.None for None return values
+                # so this also catches non-returning decorators
+                if not isinstance(return_value, nodes.FunctionDef):
+                    return False
+
+                # If the return value uses a kwarg the keyword will be consumed
+                if return_value.args.kwarg:
+                    continue
+
+                # Check if the keyword is another type of argument
+                if return_value.args.is_argument(keyword):
+                    continue
+
+                return False
+
+        return True
+
+    def _check_invalid_sequence_index(self, subscript: nodes.Subscript) -> None:
         # Look for index operations where the parent is a sequence type.
         # If the types can be determined, only allow indices to be int,
         # slice or instances with __index__.
@@ -1541,17 +1693,11 @@ accessed. Python regular expressions are accepted.",
             not isinstance(itemmethod, nodes.FunctionDef)
             or itemmethod.root().name != "builtins"
             or not itemmethod.parent
-            or itemmethod.parent.name not in SEQUENCE_TYPES
+            or itemmethod.parent.frame().name not in SEQUENCE_TYPES
         ):
             return None
 
-        # For ExtSlice objects coming from visit_extslice, no further
-        # inference is necessary, since if we got this far the ExtSlice
-        # is an error.
-        if isinstance(subscript.value, nodes.ExtSlice):
-            index_type = subscript.value
-        else:
-            index_type = safe_infer(subscript.slice)
+        index_type = safe_infer(subscript.slice)
         if index_type is None or index_type is astroid.Uninferable:
             return None
         # Constants must be of type int
@@ -1577,17 +1723,40 @@ accessed. Python regular expressions are accepted.",
         self.add_message("invalid-sequence-index", node=subscript)
         return None
 
-    @check_messages("invalid-sequence-index")
-    def visit_extslice(self, node: nodes.ExtSlice) -> None:
-        if not node.parent or not hasattr(node.parent, "value"):
-            return None
-        # Check extended slice objects as if they were used as a sequence
-        # index to check if the object being sliced can support them
-        return self._check_invalid_sequence_index(node.parent)
+    def _check_not_callable(
+        self, node: nodes.Call, inferred_call: nodes.NodeNG | None
+    ) -> None:
+        """Checks to see if the not-callable message should be emitted.
+
+        Only functions, generators and objects defining __call__ are "callable"
+        We ignore instances of descriptors since astroid cannot properly handle them yet
+        """
+        # Handle uninferable calls
+        if not inferred_call or inferred_call.callable():
+            self._check_uninferable_call(node)
+            return
+
+        if not isinstance(inferred_call, astroid.Instance):
+            self.add_message("not-callable", node=node, args=node.func.as_string())
+            return
+
+        # Don't emit if we can't make sure this object is callable.
+        if not has_known_bases(inferred_call):
+            return
+
+        if inferred_call.parent and isinstance(inferred_call.scope(), nodes.ClassDef):
+            # Ignore descriptor instances
+            if "__get__" in inferred_call.locals:
+                return
+            # NamedTuple instances are callable
+            if inferred_call.qname() == "typing.NamedTuple":
+                return
+
+        self.add_message("not-callable", node=node, args=node.func.as_string())
 
     def _check_invalid_slice_index(self, node: nodes.Slice) -> None:
         # Check the type of each part of the slice
-        invalid_slices_nodes: List[nodes.NodeNG] = []
+        invalid_slices_nodes: list[nodes.NodeNG] = []
         for index in (node.lower, node.upper, node.step):
             if index is None:
                 continue
@@ -1596,7 +1765,7 @@ accessed. Python regular expressions are accepted.",
             if index_type is None or index_type is astroid.Uninferable:
                 continue
 
-            # Constants must of type int or None
+            # Constants must be of type int or None
             if isinstance(index_type, nodes.Const):
                 if isinstance(index_type.value, (int, type(None))):
                     continue
@@ -1613,14 +1782,16 @@ accessed. Python regular expressions are accepted.",
                     pass
             invalid_slices_nodes.append(index)
 
-        if not invalid_slices_nodes:
+        invalid_slice_step = (
+            node.step and isinstance(node.step, nodes.Const) and node.step.value == 0
+        )
+
+        if not (invalid_slices_nodes or invalid_slice_step):
             return
 
         # Anything else is an error, unless the object that is indexed
         # is a custom object, which knows how to handle this kind of slices
         parent = node.parent
-        if isinstance(parent, nodes.ExtSlice):
-            parent = parent.parent
         if isinstance(parent, nodes.Subscript):
             inferred = safe_infer(parent.value)
             if inferred is None or inferred is astroid.Uninferable:
@@ -1633,13 +1804,21 @@ accessed. Python regular expressions are accepted.",
                 astroid.objects.FrozenSet,
                 nodes.Set,
             )
-            if not isinstance(inferred, known_objects):
+            if not (
+                isinstance(inferred, known_objects)
+                or isinstance(inferred, nodes.Const)
+                and inferred.pytype() in {"builtins.str", "builtins.bytes"}
+                or isinstance(inferred, astroid.bases.Instance)
+                and inferred.pytype() == "builtins.range"
+            ):
                 # Might be an instance that knows how to handle this slice object
                 return
         for snode in invalid_slices_nodes:
             self.add_message("invalid-slice-index", node=snode)
+        if invalid_slice_step:
+            self.add_message("invalid-slice-step", node=node.step, confidence=HIGH)
 
-    @check_messages("not-context-manager")
+    @only_required_for_messages("not-context-manager")
     def visit_with(self, node: nodes.With) -> None:
         for ctx_mgr, _ in node.items:
             context = astroid.context.InferenceContext()
@@ -1651,7 +1830,7 @@ accessed. Python regular expressions are accepted.",
                 # Check if we are dealing with a function decorated
                 # with contextlib.contextmanager.
                 if decorated_with(
-                    inferred.parent, self.config.contextmanager_decorators
+                    inferred.parent, self.linter.config.contextmanager_decorators
                 ):
                     continue
                 # If the parent of the generator is not the context manager itself,
@@ -1665,7 +1844,8 @@ accessed. Python regular expressions are accepted.",
                 # See the test file for not_context_manager for a couple
                 # of self explaining tests.
 
-                # Retrieve node from all previusly visited nodes in the the inference history
+                # Retrieve node from all previously visited nodes in the
+                # inference history
                 context_path_names: Iterator[Any] = filter(
                     None, _unflatten(context.path)
                 )
@@ -1678,7 +1858,9 @@ accessed. Python regular expressions are accepted.",
                     scope = inferred_path.scope()
                     if not isinstance(scope, nodes.FunctionDef):
                         continue
-                    if decorated_with(scope, self.config.contextmanager_decorators):
+                    if decorated_with(
+                        scope, self.linter.config.contextmanager_decorators
+                    ):
                         break
                 else:
                     self.add_message(
@@ -1695,7 +1877,10 @@ accessed. Python regular expressions are accepted.",
                         if not has_known_bases(inferred):
                             continue
                         # Just ignore mixin classes.
-                        if self.config.ignore_mixin_members:
+                        if (
+                            "not-context-manager"
+                            in self.linter.config.ignored_checks_for_mixins
+                        ):
                             if inferred.name[-5:].lower() == "mixin":
                                 continue
 
@@ -1703,7 +1888,7 @@ accessed. Python regular expressions are accepted.",
                         "not-context-manager", node=node, args=(inferred.name,)
                     )
 
-    @check_messages("invalid-unary-operand-type")
+    @only_required_for_messages("invalid-unary-operand-type")
     def visit_unaryop(self, node: nodes.UnaryOp) -> None:
         """Detect TypeErrors for unary operands."""
 
@@ -1711,7 +1896,7 @@ accessed. Python regular expressions are accepted.",
             # Let the error customize its output.
             self.add_message("invalid-unary-operand-type", args=str(error), node=node)
 
-    @check_messages("unsupported-binary-operation")
+    @only_required_for_messages("unsupported-binary-operation")
     def visit_binop(self, node: nodes.BinOp) -> None:
         if node.op == "|":
             self._detect_unsupported_alternative_union_syntax(node)
@@ -1757,26 +1942,77 @@ accessed. Python regular expressions are accepted.",
             if not allowed_nested_syntax:
                 self._check_unsupported_alternative_union_syntax(node)
 
-    def _check_unsupported_alternative_union_syntax(self, node: nodes.BinOp) -> None:
-        """Check if left or right node is of type `type`."""
-        msg = "unsupported operand type(s) for |"
-        for n in (node.left, node.right):
-            n = astroid.helpers.object_type(n)
-            if isinstance(n, nodes.ClassDef) and is_classdef_type(n):
-                self.add_message("unsupported-binary-operation", args=msg, node=node)
-                break
+    def _includes_version_compatible_overload(self, attrs: list[nodes.NodeNG]) -> bool:
+        """Check if a set of overloads of an operator includes one that
+        can be relied upon for our configured Python version.
 
-    @check_messages("unsupported-binary-operation")
+        If we are running under a Python 3.10+ runtime but configured for
+        pre-3.10 compatibility then Astroid will have inferred the
+        existence of __or__ / __ror__ on builtins.type, but these aren't
+        available in the configured version of Python.
+        """
+        is_py310_builtin = all(
+            isinstance(attr, (nodes.FunctionDef, astroid.BoundMethod))
+            and attr.parent.qname() == "builtins.type"
+            for attr in attrs
+        )
+        return not is_py310_builtin or self._py310_plus
+
+    def _recursive_search_for_classdef_type(
+        self, node: nodes.ClassDef, operation: Literal["__or__", "__ror__"]
+    ) -> bool | VERSION_COMPATIBLE_OVERLOAD:
+        if not isinstance(node, nodes.ClassDef):
+            return False
+        try:
+            attrs = node.getattr(operation)
+        except astroid.NotFoundError:
+            return True
+        if self._includes_version_compatible_overload(attrs):
+            return VERSION_COMPATIBLE_OVERLOAD_SENTINEL
+        return True
+
+    def _check_unsupported_alternative_union_syntax(self, node: nodes.BinOp) -> None:
+        """Check if left or right node is of type `type`.
+
+        If either is, and doesn't support an or operator via a metaclass,
+        infer that this is a mistaken attempt to use alternative union
+        syntax when not supported.
+        """
+        msg = "unsupported operand type(s) for |"
+        left_obj = astroid.helpers.object_type(node.left)
+        right_obj = astroid.helpers.object_type(node.right)
+        left_is_type = self._recursive_search_for_classdef_type(left_obj, "__or__")
+        if left_is_type is VERSION_COMPATIBLE_OVERLOAD_SENTINEL:
+            return
+        right_is_type = self._recursive_search_for_classdef_type(right_obj, "__ror__")
+        if right_is_type is VERSION_COMPATIBLE_OVERLOAD_SENTINEL:
+            return
+
+        if left_is_type or right_is_type:
+            self.add_message(
+                "unsupported-binary-operation",
+                args=msg,
+                node=node,
+                confidence=INFERENCE,
+            )
+
+    # TODO: This check was disabled (by adding the leading underscore)
+    # due to false positives several years ago - can we re-enable it?
+    # https://github.com/PyCQA/pylint/issues/6359
+    @only_required_for_messages("unsupported-binary-operation")
     def _visit_binop(self, node: nodes.BinOp) -> None:
         """Detect TypeErrors for binary arithmetic operands."""
         self._check_binop_errors(node)
 
-    @check_messages("unsupported-binary-operation")
+    # TODO: This check was disabled (by adding the leading underscore)
+    # due to false positives several years ago - can we re-enable it?
+    # https://github.com/PyCQA/pylint/issues/6359
+    @only_required_for_messages("unsupported-binary-operation")
     def _visit_augassign(self, node: nodes.AugAssign) -> None:
         """Detect TypeErrors for augmented binary arithmetic operands."""
         self._check_binop_errors(node)
 
-    def _check_binop_errors(self, node):
+    def _check_binop_errors(self, node: nodes.BinOp | nodes.AugAssign) -> None:
         for error in node.type_errors():
             # Let the error customize its output.
             if any(
@@ -1786,7 +2022,7 @@ accessed. Python regular expressions are accepted.",
                 continue
             self.add_message("unsupported-binary-operation", args=str(error), node=node)
 
-    def _check_membership_test(self, node):
+    def _check_membership_test(self, node: nodes.NodeNG) -> None:
         if is_inside_abstract_class(node):
             return
         if is_comprehension(node):
@@ -1799,7 +2035,7 @@ accessed. Python regular expressions are accepted.",
                 "unsupported-membership-test", args=node.as_string(), node=node
             )
 
-    @check_messages("unsupported-membership-test")
+    @only_required_for_messages("unsupported-membership-test")
     def visit_compare(self, node: nodes.Compare) -> None:
         if len(node.ops) != 1:
             return
@@ -1808,32 +2044,53 @@ accessed. Python regular expressions are accepted.",
         if op in {"in", "not in"}:
             self._check_membership_test(right)
 
-    @check_messages(
+    @only_required_for_messages("unhashable-member")
+    def visit_dict(self, node: nodes.Dict) -> None:
+        for k, _ in node.items:
+            if not is_hashable(k):
+                self.add_message(
+                    "unhashable-member",
+                    node=k,
+                    args=(k.as_string(), "key", "dict"),
+                    confidence=INFERENCE,
+                )
+
+    @only_required_for_messages("unhashable-member")
+    def visit_set(self, node: nodes.Set) -> None:
+        for element in node.elts:
+            if not is_hashable(element):
+                self.add_message(
+                    "unhashable-member",
+                    node=element,
+                    args=(element.as_string(), "member", "set"),
+                    confidence=INFERENCE,
+                )
+
+    @only_required_for_messages(
         "unsubscriptable-object",
         "unsupported-assignment-operation",
         "unsupported-delete-operation",
-        "unhashable-dict-key",
+        "unhashable-member",
         "invalid-sequence-index",
         "invalid-slice-index",
+        "invalid-slice-step",
     )
     def visit_subscript(self, node: nodes.Subscript) -> None:
         self._check_invalid_sequence_index(node)
 
-        supported_protocol: Optional[Callable[[Any, Any], bool]] = None
+        supported_protocol: Callable[[Any, Any], bool] | None = None
         if isinstance(node.value, (nodes.ListComp, nodes.DictComp)):
             return
 
         if isinstance(node.value, nodes.Dict):
             # Assert dict key is hashable
-            inferred = safe_infer(node.slice)
-            if inferred and inferred != astroid.Uninferable:
-                try:
-                    hash_fn = next(inferred.igetattr("__hash__"))
-                except astroid.InferenceError:
-                    pass
-                else:
-                    if getattr(hash_fn, "value", True) is None:
-                        self.add_message("unhashable-dict-key", node=node.value)
+            if not is_hashable(node.slice):
+                self.add_message(
+                    "unhashable-member",
+                    node=node.value,
+                    args=(node.slice.as_string(), "key", "dict"),
+                    confidence=INFERENCE,
+                )
 
         if node.ctx == astroid.Load:
             supported_protocol = supports_getitem
@@ -1865,10 +2122,14 @@ accessed. Python regular expressions are accepted.",
                 return  # It would be better to handle function
                 # decorators, but let's start slow.
 
-        if supported_protocol and not supported_protocol(inferred, node):
+        if (
+            supported_protocol
+            and not supported_protocol(inferred, node)
+            and not utils.in_type_checking_block(node)
+        ):
             self.add_message(msg, args=node.value.as_string(), node=node.value)
 
-    @check_messages("dict-items-missing-iter")
+    @only_required_for_messages("dict-items-missing-iter")
     def visit_for(self, node: nodes.For) -> None:
         if not isinstance(node.target, nodes.Tuple):
             # target is not a tuple
@@ -1895,10 +2156,24 @@ accessed. Python regular expressions are accepted.",
 
         self.add_message("dict-iter-missing-items", node=node)
 
+    @only_required_for_messages("await-outside-async")
+    def visit_await(self, node: nodes.Await) -> None:
+        self._check_await_outside_coroutine(node)
+
+    def _check_await_outside_coroutine(self, node: nodes.Await) -> None:
+        node_scope = node.scope()
+        while not isinstance(node_scope, nodes.Module):
+            if isinstance(node_scope, nodes.AsyncFunctionDef):
+                return
+            if isinstance(node_scope, nodes.FunctionDef):
+                break
+            node_scope = node_scope.parent.scope()
+        self.add_message("await-outside-async", node=node)
+
 
 class IterableChecker(BaseChecker):
-    """
-    Checks for non-iterables used in an iterable context.
+    """Checks for non-iterables used in an iterable context.
+
     Contexts include:
     - for-statement
     - starargs in function call
@@ -1908,7 +2183,6 @@ class IterableChecker(BaseChecker):
     Also checks for non-mappings in function call kwargs.
     """
 
-    __implements__ = (IAstroidChecker,)
     name = "typecheck"
 
     msgs = {
@@ -1927,7 +2201,7 @@ class IterableChecker(BaseChecker):
     }
 
     @staticmethod
-    def _is_asyncio_coroutine(node):
+    def _is_asyncio_coroutine(node: nodes.NodeNG) -> bool:
         if not isinstance(node, nodes.Call):
             return False
 
@@ -1945,16 +2219,16 @@ class IterableChecker(BaseChecker):
             return True
         return False
 
-    def _check_iterable(self, node, check_async=False):
-        if is_inside_abstract_class(node) or is_comprehension(node):
+    def _check_iterable(self, node: nodes.NodeNG, check_async: bool = False) -> None:
+        if is_inside_abstract_class(node):
             return
         inferred = safe_infer(node)
-        if not inferred:
+        if not inferred or is_comprehension(inferred):
             return
         if not is_iterable(inferred, check_async=check_async):
             self.add_message("not-an-iterable", args=node.as_string(), node=node)
 
-    def _check_mapping(self, node):
+    def _check_mapping(self, node: nodes.NodeNG) -> None:
         if is_inside_abstract_class(node):
             return
         if isinstance(node, nodes.DictComp):
@@ -1965,63 +2239,48 @@ class IterableChecker(BaseChecker):
         if not is_mapping(inferred):
             self.add_message("not-a-mapping", args=node.as_string(), node=node)
 
-    @check_messages("not-an-iterable")
+    @only_required_for_messages("not-an-iterable")
     def visit_for(self, node: nodes.For) -> None:
         self._check_iterable(node.iter)
 
-    @check_messages("not-an-iterable")
+    @only_required_for_messages("not-an-iterable")
     def visit_asyncfor(self, node: nodes.AsyncFor) -> None:
         self._check_iterable(node.iter, check_async=True)
 
-    @check_messages("not-an-iterable")
+    @only_required_for_messages("not-an-iterable")
     def visit_yieldfrom(self, node: nodes.YieldFrom) -> None:
         if self._is_asyncio_coroutine(node.value):
             return
         self._check_iterable(node.value)
 
-    @check_messages("not-an-iterable", "not-a-mapping")
+    @only_required_for_messages("not-an-iterable", "not-a-mapping")
     def visit_call(self, node: nodes.Call) -> None:
         for stararg in node.starargs:
             self._check_iterable(stararg.value)
         for kwarg in node.kwargs:
             self._check_mapping(kwarg.value)
 
-    @check_messages("not-an-iterable")
+    @only_required_for_messages("not-an-iterable")
     def visit_listcomp(self, node: nodes.ListComp) -> None:
         for gen in node.generators:
             self._check_iterable(gen.iter, check_async=gen.is_async)
 
-    @check_messages("not-an-iterable")
+    @only_required_for_messages("not-an-iterable")
     def visit_dictcomp(self, node: nodes.DictComp) -> None:
         for gen in node.generators:
             self._check_iterable(gen.iter, check_async=gen.is_async)
 
-    @check_messages("not-an-iterable")
+    @only_required_for_messages("not-an-iterable")
     def visit_setcomp(self, node: nodes.SetComp) -> None:
         for gen in node.generators:
             self._check_iterable(gen.iter, check_async=gen.is_async)
 
-    @check_messages("not-an-iterable")
+    @only_required_for_messages("not-an-iterable")
     def visit_generatorexp(self, node: nodes.GeneratorExp) -> None:
         for gen in node.generators:
             self._check_iterable(gen.iter, check_async=gen.is_async)
 
-    @check_messages("await-outside-async")
-    def visit_await(self, node: nodes.Await) -> None:
-        self._check_await_outside_coroutine(node)
 
-    def _check_await_outside_coroutine(self, node: nodes.Await) -> None:
-        node_scope = node.scope()
-        while not isinstance(node_scope, nodes.Module):
-            if isinstance(node_scope, nodes.AsyncFunctionDef):
-                return
-            if isinstance(node_scope, nodes.FunctionDef):
-                break
-            node_scope = node_scope.parent.scope()
-        self.add_message("await-outside-async", node=node)
-
-
-def register(linter):
-    """required method to auto register this checker"""
+def register(linter: PyLinter) -> None:
     linter.register_checker(TypeChecker(linter))
     linter.register_checker(IterableChecker(linter))

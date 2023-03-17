@@ -1,8 +1,7 @@
-# pylint:disable=pointless-string-statement, fixme, comparison-with-itself
+# pylint:disable=pointless-string-statement, fixme, comparison-with-itself, comparison-of-constants
 """Stray backslash escapes may be missing a raw-string prefix."""
 # pylint: disable=redundant-u-string-prefix
 
-__revision__ = '$Id$'
 
 # Bad escape sequences, which probably don't do what you expect.
 A = "\[\]\\"  # [anomalous-backslash-in-string,anomalous-backslash-in-string]

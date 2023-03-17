@@ -1,27 +1,28 @@
-""" Profiles basic -jX functionality """
-# Copyright (c) 2020-2021 Pierre Sassoulas <pierre.sassoulas@gmail.com>
-# Copyright (c) 2020 Frank Harrison <frank@doublethefish.com>
-# Copyright (c) 2021 Daniël van Noord <13665637+DanielNoord@users.noreply.github.com>
-# Copyright (c) 2021 Marc Mueller <30130371+cdce8p@users.noreply.github.com>
+"""Profiles basic -jX functionality."""
 
 # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
 
 # pylint: disable=missing-function-docstring
 
+from __future__ import annotations
+
 import os
 import pprint
+from pathlib import Path
 
 import pytest
+from git.repo import Repo
 
-from pylint.lint import Run
 from pylint.testutils import GenericTestReporter as Reporter
+from pylint.testutils._run import _Run as Run
 
 
-def _get_py_files(scanpath):
+def _get_py_files(scanpath: str) -> list[str]:
     assert os.path.exists(scanpath), f"Dir not found {scanpath}"
 
-    filepaths = []
+    filepaths: list[str] = []
     for dirpath, dirnames, filenames in os.walk(scanpath):
         dirnames[:] = [dirname for dirname in dirnames if dirname != "__pycache__"]
         filepaths.extend(
@@ -41,15 +42,15 @@ def _get_py_files(scanpath):
 @pytest.mark.parametrize(
     "name,git_repo", [("numpy", "https://github.com/numpy/numpy.git")]
 )
-def test_run(tmp_path, name, git_repo):
-    """Runs pylint against external sources"""
+def test_run(tmp_path: Path, name: str, git_repo: str) -> None:
+    """Runs pylint against external sources."""
     checkoutdir = tmp_path / name
     checkoutdir.mkdir()
-    os.system(f"git clone --depth=1 {git_repo} {checkoutdir}")
+    Repo.clone_from(url=git_repo, to_path=checkoutdir, depth=1)
     filepaths = _get_py_files(scanpath=str(checkoutdir))
     print(f"Have {len(filepaths)} files")
 
-    runner = Run(filepaths, reporter=Reporter(), do_exit=False)
+    runner = Run(filepaths, reporter=Reporter(), exit=False)
 
     print(
         f"Had {len(filepaths)} files with {len(runner.linter.reporter.messages)} messages"

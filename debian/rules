@@ -4,8 +4,16 @@
 #export DH_VERBOSE=1
 
 export PYBUILD_BEFORE_TEST=rm -f {dir}/tests/functional/u/unused_typing_imports.py {dir}/tests/functional/m/missing_final_newline.py
-# disable until https://github.com/PyCQA/pylint/issues/5246 is fixed
-export PYBUILD_TEST_ARGS=-k 'not test_pkginfo and not test_do_not_import_files_from_local_directory and not test_import_plugin_from_local_directory_if_pythonpath_cwd and not test_can_list_directories_without_dunder_init and not test_fail_on_exit_code'
+# skip test_linter_with_unpickleable_plugins_is_pickleable, fails autopkgtest for some reason
+# skip test_allow_reexport_package test_writing_minimal_file, for https://github.com/PyCQA/pylint/issues/8342
+export PYBUILD_TEST_ARGS=-vvvv \
+                         -k '\
+                             not test_do_not_import_files_from_local_directory \
+                         and not test_linter_with_unpickleable_plugins_is_pickleable \
+                         and not test_allow_reexport_package \
+                         and not test_writing_minimal_file \
+                         ' \
+                         {build_dir}/tests
 export PYBUILD_AFTER_TEST=rm -rf {dir}/.pytest_cache
 export PYBUILD_BEFORE_INSTALL=rm -rf {build_dir}/classes.dot
 
@@ -14,10 +22,7 @@ export PYBUILD_BEFORE_INSTALL=rm -rf {build_dir}/classes.dot
 
 override_dh_auto_build:
 	dh_auto_build
-	PATH=$(CURDIR):$$PATH $(MAKE) -C doc html PYTHONPATH=$(CURDIR) PYTHON=python3
-
-override_dh_installchangelogs:
-	dh_installchangelogs -i ChangeLog
+	PATH=$(CURDIR):$$PATH $(MAKE) -C doc build-html PYTHONPATH=$(CURDIR) PYTHON=python3
 
 override_dh_compress:
 	dh_compress -i -X.py -X.ini -X.xml -Xtest

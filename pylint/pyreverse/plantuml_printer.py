@@ -1,36 +1,35 @@
-# Copyright (c) 2021 Andreas Finkler <andi.finkler@gmail.com>
-
 # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
 
-"""
-Class to generate files in dot format and image formats supported by Graphviz.
-"""
-from typing import Dict, Optional
+"""Class to generate files in dot format and image formats supported by Graphviz."""
+
+from __future__ import annotations
 
 from pylint.pyreverse.printer import EdgeType, Layout, NodeProperties, NodeType, Printer
 from pylint.pyreverse.utils import get_annotation_label
 
 
 class PlantUmlPrinter(Printer):
-    """Printer for PlantUML diagrams"""
+    """Printer for PlantUML diagrams."""
 
     DEFAULT_COLOR = "black"
 
-    NODES: Dict[NodeType, str] = {
+    NODES: dict[NodeType, str] = {
         NodeType.CLASS: "class",
         NodeType.INTERFACE: "class",
         NodeType.PACKAGE: "package",
     }
-    ARROWS: Dict[EdgeType, str] = {
+    ARROWS: dict[EdgeType, str] = {
         EdgeType.INHERITS: "--|>",
         EdgeType.IMPLEMENTS: "..|>",
         EdgeType.ASSOCIATION: "--*",
+        EdgeType.AGGREGATION: "--o",
         EdgeType.USES: "-->",
     }
 
     def _open_graph(self) -> None:
-        """Emit the header lines"""
+        """Emit the header lines."""
         self.emit("@startuml " + self.title)
         if not self.use_automatic_namespace:
             self.emit("set namespaceSeparator none")
@@ -41,16 +40,20 @@ class PlantUmlPrinter(Printer):
                 self.emit("top to bottom direction")
             else:
                 raise ValueError(
-                    f"Unsupported layout {self.layout}. PlantUmlPrinter only supports left to right and top to bottom layout."
+                    f"Unsupported layout {self.layout}. PlantUmlPrinter only "
+                    "supports left to right and top to bottom layout."
                 )
 
     def emit_node(
         self,
         name: str,
         type_: NodeType,
-        properties: Optional[NodeProperties] = None,
+        properties: NodeProperties | None = None,
     ) -> None:
-        """Create a new node. Nodes can be classes, packages, participants etc."""
+        """Create a new node.
+
+        Nodes can be classes, packages, participants etc.
+        """
         if properties is None:
             properties = NodeProperties(label=name)
         stereotype = " << interface >>" if type_ is NodeType.INTERFACE else ""
@@ -65,7 +68,8 @@ class PlantUmlPrinter(Printer):
         if properties.methods:
             for func in properties.methods:
                 args = self._get_method_arguments(func)
-                line = f"{func.name}({', '.join(args)})"
+                line = "{abstract}" if func.is_abstract() else ""
+                line += f"{func.name}({', '.join(args)})"
                 if func.returns:
                     line += " -> " + get_annotation_label(func.returns)
                 body.append(line)
@@ -84,7 +88,7 @@ class PlantUmlPrinter(Printer):
         from_node: str,
         to_node: str,
         type_: EdgeType,
-        label: Optional[str] = None,
+        label: str | None = None,
     ) -> None:
         """Create an edge from one node to another to display relationships."""
         edge = f"{from_node} {self.ARROWS[type_]} {to_node}"

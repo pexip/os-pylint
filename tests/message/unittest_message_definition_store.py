@@ -1,5 +1,8 @@
 # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
+
+from __future__ import annotations
 
 from contextlib import redirect_stdout
 from io import StringIO
@@ -9,8 +12,10 @@ from pytest import CaptureFixture
 
 from pylint.checkers import BaseChecker
 from pylint.exceptions import InvalidMessageError, UnknownMessageError
+from pylint.lint.pylinter import PyLinter
 from pylint.message import MessageDefinition
 from pylint.message.message_definition_store import MessageDefinitionStore
+from pylint.typing import MessageDefinitionTuple
 
 
 @pytest.mark.parametrize(
@@ -118,8 +123,15 @@ from pylint.message.message_definition_store import MessageDefinitionStore
         ),
     ],
 )
-def test_register_error(empty_store, messages, expected):
+def test_register_error(
+    empty_store: MessageDefinitionStore,
+    messages: dict[str, MessageDefinitionTuple],
+    expected: str,
+) -> None:
     class Checker(BaseChecker):
+        def __init__(self) -> None:
+            super().__init__(PyLinter())
+
         name = "checker"
         msgs = messages
 
@@ -132,10 +144,16 @@ def test_register_error_new_id_duplicate_of_new(
     empty_store: MessageDefinitionStore,
 ) -> None:
     class CheckerOne(BaseChecker):
+        def __init__(self) -> None:
+            super().__init__(PyLinter())
+
         name = "checker_one"
         msgs = {"W1234": ("message one", "msg-symbol-one", "msg description.")}
 
     class CheckerTwo(BaseChecker):
+        def __init__(self) -> None:
+            super().__init__(PyLinter())
+
         name = "checker_two"
         msgs = {"W1234": ("message two", "msg-symbol-two", "another msg description.")}
 
@@ -246,6 +264,9 @@ def test_multiple_child_of_old_name(store: MessageDefinitionStore) -> None:
     """We can define multiple name with the same old name."""
 
     class FamillyChecker(BaseChecker):
+        def __init__(self) -> None:
+            super().__init__(PyLinter())
+
         name = "famillychecker"
         msgs = {
             "W1235": (

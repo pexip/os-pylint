@@ -1,4 +1,5 @@
-# pylint: disable=unused-import,multiple-imports,no-self-use,missing-docstring,invalid-name,too-few-public-methods
+# pylint: disable=unused-import,multiple-imports,missing-docstring,invalid-name,too-few-public-methods
+# pylint: disable=comparison-of-constants
 
 import abc
 
@@ -26,7 +27,7 @@ class C:
     import tokenize  # [import-outside-toplevel]
 
     def j(self):
-        import turtle  # [import-outside-toplevel]
+        import trace  # [import-outside-toplevel]
 
 
 def k(flag):

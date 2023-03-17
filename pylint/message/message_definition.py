@@ -1,8 +1,12 @@
 # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
+
+from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, List, Optional, Tuple
+import warnings
+from typing import TYPE_CHECKING, Any
 
 from astroid import nodes
 
@@ -15,17 +19,20 @@ if TYPE_CHECKING:
 
 
 class MessageDefinition:
+    # pylint: disable-next=too-many-arguments
     def __init__(
         self,
-        checker: "BaseChecker",
+        checker: BaseChecker,
         msgid: str,
         msg: str,
         description: str,
         symbol: str,
         scope: str,
-        minversion: Optional[Tuple[int, int]] = None,
-        maxversion: Optional[Tuple[int, int]] = None,
-        old_names: Optional[List[Tuple[str, str]]] = None,
+        minversion: tuple[int, int] | None = None,
+        maxversion: tuple[int, int] | None = None,
+        old_names: list[tuple[str, str]] | None = None,
+        shared: bool = False,
+        default_enabled: bool = True,
     ) -> None:
         self.checker_name = checker.name
         self.check_msgid(msgid)
@@ -36,7 +43,9 @@ class MessageDefinition:
         self.scope = scope
         self.minversion = minversion
         self.maxversion = maxversion
-        self.old_names: List[Tuple[str, str]] = []
+        self.shared = shared
+        self.default_enabled = default_enabled
+        self.old_names: list[tuple[str, str]] = []
         if old_names:
             for old_msgid, old_symbol in old_names:
                 self.check_msgid(old_msgid)
@@ -51,22 +60,42 @@ class MessageDefinition:
         if msgid[0] not in MSG_TYPES:
             raise InvalidMessageError(f"Bad message type {msgid[0]} in {msgid!r}")
 
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, MessageDefinition)
+            and self.msgid == other.msgid
+            and self.symbol == other.symbol
+        )
+
     def __repr__(self) -> str:
         return f"MessageDefinition:{self.symbol} ({self.msgid})"
 
     def __str__(self) -> str:
         return f"{repr(self)}:\n{self.msg} {self.description}"
 
-    def may_be_emitted(self) -> bool:
-        """return True if message may be emitted using the current interpreter"""
-        if self.minversion is not None and self.minversion > sys.version_info:
+    def may_be_emitted(
+        self,
+        py_version: tuple[int, ...] | sys._version_info | None = None,
+    ) -> bool:
+        """Return True if message may be emitted using the configured py_version."""
+        if py_version is None:
+            py_version = sys.version_info
+            warnings.warn(
+                "'py_version' will be a required parameter of "
+                "'MessageDefinition.may_be_emitted' in pylint 3.0. The most likely "
+                "solution is to use 'linter.config.py_version' if you need to keep "
+                "using this function, or to use 'MessageDefinition.is_message_enabled'"
+                " instead.",
+                DeprecationWarning,
+            )
+        if self.minversion is not None and self.minversion > py_version:
             return False
-        if self.maxversion is not None and self.maxversion <= sys.version_info:
+        if self.maxversion is not None and self.maxversion <= py_version:
             return False
         return True
 
     def format_help(self, checkerref: bool = False) -> str:
-        """return the help string for the given message id"""
+        """Return the help string for the given message id."""
         desc = self.description
         if checkerref:
             desc += f" This message belongs to the {self.checker_name} checker."
@@ -92,9 +121,9 @@ class MessageDefinition:
         return f":{message_id}:\n{msg_help}"
 
     def check_message_definition(
-        self, line: Optional[int], node: Optional[nodes.NodeNG]
+        self, line: int | None, node: nodes.NodeNG | None
     ) -> None:
-        """Check MessageDefinition for possible errors"""
+        """Check MessageDefinition for possible errors."""
         if self.msgid[0] not in _SCOPE_EXEMPT:
             # Fatal messages and reports are special, the node/scope distinction
             # does not apply to them.

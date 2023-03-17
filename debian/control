@@ -5,26 +5,31 @@ Maintainer: Pexip AS <packaging@pexip.com>
 XSBC-Pexip-Original-Maintainer: Sandro Tosi <morph@debian.org>
 XSBC-Pexip-Original-Uploaders: Debian Python Team <team+python@tracker.debian.org>,
 Build-Depends: debhelper-compat (= 13),
-               dh-python,
+               pybuild-plugin-pyproject,
                python3-all,
-               python3-astroid (>= 2.9.0),
+               python3-astroid (>= 2.14.2),
+               python3-dill (>= 0.3.6),
                python3-docs-theme,
                python3-git <!nodoc>,
                python3-isort,
                python3-mccabe,
+               python3-myst-parser <!nodoc>,
                python3-platformdirs <!nodoc>,
                python3-pytest <!nocheck>,
                python3-pytest-benchmark <!nocheck>,
                python3-pytest-runner <!nocheck>,
                python3-setuptools,
                python3-sphinx,
+               python3-sphinx-reredirects <!nodoc>,
                python3-toml,
+               python3-tomlkit,
                python3-typing-extensions (>= 3.10.0),
-Standards-Version: 4.6.0.1
+Standards-Version: 4.6.2.0
 Rules-Requires-Root: no
-Homepage: https://www.pylint.org/
+Homepage: https://pylint.pycqa.org/
 Vcs-Git: https://salsa.debian.org/python-team/packages/pylint.git
 Vcs-Browser: https://salsa.debian.org/python-team/packages/pylint
+Testsuite: autopkgtest-pkg-pybuild
 XS-Pexip-Upstream: http://ftp.debian.org/debian/ bookworm
 
 Package: pylint-doc

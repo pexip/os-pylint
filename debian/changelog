@@ -1,3 +1,93 @@
+pylint (2.16.2-2) unstable; urgency=medium
+
+  * debian/rules
+    - reorg how we skip tests, removing the ones now fixed
+  * debian/control
+    - bump b-d on astroid to >= 2.14.2; Closes: #1032043
+
+ -- Sandro Tosi <morph@debian.org>  Tue, 28 Feb 2023 01:04:13 -0500
+
+pylint (2.16.2-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/rules
+    - tests: only limit to tests/ directory for discovery
+    - tests: skip test_allow_reexport_package, test_writing_minimal_file
+  * debian/patches/PR7521.patch
+    - drop patch, merged upstream
+  * stop installing emacs script, removed upstream; Closes: #563000, #613646,
+    #860983
+
+ -- Sandro Tosi <morph@debian.org>  Sat, 25 Feb 2023 20:58:26 -0500
+
+pylint (2.15.10-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/copyright
+    - extend packaging copyright years
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 22 Jan 2023 00:57:05 -0500
+
+pylint (2.15.9-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/control
+    - bump Standards-Version to 4.6.2.0 (no changes needed)
+    - run autopkgtest via autopkgtest-pkg-pybuild
+  * debian/rules
+    - exclude test_linter_with_unpickleable_plugins_is_pickleable test, fails
+      when running in autopkgtest
+
+ -- Sandro Tosi <morph@debian.org>  Sat, 31 Dec 2022 01:38:19 -0500
+
+pylint (2.15.8-1) unstable; urgency=medium
+
+  * New upstream release
+  * debian/control
+    - bump astroid b-d to >= 2.12.13
+    - bump dill b-d to >= 0.3.6, needed for tests to pass with python 3.11;
+      Closes: #1025322
+    - bump Standards-Version to 4.6.1.0 (no changes needed)
+  * debian/NEWS, debian/NEWS.Debian
+    - remove NEWS, very ancient
+  * debian/copyright
+    - extend packaging copyright years
+
+ -- Sandro Tosi <morph@debian.org>  Sat, 10 Dec 2022 20:35:42 -0500
+
+pylint (2.15.5-1) unstable; urgency=medium
+
+  * New upstream release; Closes: #1021895
+  * debian/control
+    - bump b-d on astroid to >= 2.12.12
+
+ -- Sandro Tosi <morph@debian.org>  Sat, 22 Oct 2022 20:27:36 -0400
+
+pylint (2.15.3-1) unstable; urgency=medium
+
+  * New upstream release; Closes: #1019887
+  * debian/patches/avoid-pip.patch
+    - refresh patch
+  * debian/patches/gh_issue_3198.patch
+    - drop patch, no longer needed
+  * debian/control
+    - switch to pyproject pybuild plugin
+    - add dill, tomlkit (build) and sphinx-reredirects, myst-parser (doc) to b-d
+    - bump versioned b-d on astroid to >= 2.12.10
+  * debian/patches/docs-no-furo.patch
+    - dont use the un-packaged furo theme in doc
+  * debian/patches/PR7521.patch
+    - make sure upstream dont change the `.pybuild` directory name during tests
+  * debian/patches/docs-disable-warnings-as-errors.patch
+    - dont treat warnings as errors when building doc
+  * debian/rules
+    - build doc using the `build-html` target
+    - stop installing changelog, removed upstream
+    - skip test__test_environ_pythonpath_no_arg during build
+  * Update upstream website URL
+
+ -- Sandro Tosi <morph@debian.org>  Sat, 24 Sep 2022 02:34:54 -0400
+
 pylint (2.12.2-1pexip3) pexip-bullseye; urgency=medium
 
   * Bullseye rebuild for ARM64 inclusion

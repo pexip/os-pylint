@@ -1,4 +1,3 @@
 avoid-pip.patch
-gh_issue_3198.patch
-upstream_1c87f3f0781e1eda638432da2fd80d3510e52ffe.patch
-upstream_72e2e2a222e867e74b0ae15293a1a3c7bb5d16fe.patch
+docs-no-furo.patch
+docs-disable-warnings-as-errors.patch

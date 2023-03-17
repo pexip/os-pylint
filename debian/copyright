@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: pylint
-Source: http://www.pylint.org/
+Source: https://github.com/PyCQA/pylint
 
 Files: *
 Copyright: Copyright (c) 2003-2017, Logilab, PyCQA and contributors
@@ -24,7 +24,7 @@ License: GPL-2+
  may be found in '/usr/share/common-licenses/GPL-2'.
 
 Files: debian/*
-Copyright: Copyright (C) 2008-2021, Sandro Tosi <morph@debian.org>
+Copyright: Copyright (C) 2008-2023, Sandro Tosi <morph@debian.org>
 License: GPL-2+
 
 # What follows has been auto-generated with (running from an unpacked source tarball):

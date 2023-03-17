@@ -1,9 +1,8 @@
-# pylint:disable=no-self-use
-# pylint:disable=too-few-public-methods, useless-object-inheritance
+# pylint:disable=too-few-public-methods
 """Checks that class variables are seen as inherited !"""
 
 
-class BaseClass(object):
+class BaseClass:
     """A simple base class
     """
 

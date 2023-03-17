@@ -1,6 +1,5 @@
 """Check for else branches on loops with break and return only."""
-from __future__ import print_function
-__revision__ = 0
+
 
 def test_return_for():
     """else + return is not acceptable."""
@@ -12,7 +11,7 @@ def test_return_for():
     return None
 
 def test_return_while():
-    """else + return is not accetable."""
+    """else + return is not acceptable."""
     while True:
         return 1
     else:  # [useless-else-on-loop]
@@ -62,9 +61,9 @@ def test_break_in_orelse_deep():
     """no false positive for break in else deeply nested
     """
     for _ in range(10):
-        if 1 < 2:
+        if 1 < 2:  # pylint: disable=comparison-of-constants
             for _ in range(3):
-                if 3 < 2:
+                if 3 < 2:  # pylint: disable=comparison-of-constants
                     break
             else:
                 break
@@ -78,9 +77,9 @@ def test_break_in_orelse_deep2():
     for the inner for loop
     """
     for _ in range(10):
-        if 1 < 2:
+        if 1 < 2:  # pylint: disable=comparison-of-constants
             for _ in range(3):
-                if 3 < 2:
+                if 3 < 2:  # pylint: disable=comparison-of-constants
                     break
             else:
                 print("all right")
@@ -96,7 +95,7 @@ def test_break_in_orelse_deep3():
         for _ in range(3):
             pass
         else:
-            if 1 < 2:
+            if 1 < 2:  # pylint: disable=comparison-of-constants
                 break
     else:
         return True

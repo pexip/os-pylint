@@ -1,7 +1,7 @@
 """Test that we are emitting arguments-differ when the arguments are different."""
-# pylint: disable=missing-docstring, too-few-public-methods, unused-argument,useless-super-delegation, useless-object-inheritance, unused-private-member
+# pylint: disable=missing-docstring, too-few-public-methods, unused-argument,useless-super-delegation, unused-private-member
 
-class Parent(object):
+class Parent:
 
     def test(self):
         pass
@@ -13,7 +13,7 @@ class Child(Parent):
         pass
 
 
-class ParentDefaults(object):
+class ParentDefaults:
 
     def test(self, arg=None, barg=None):
         pass
@@ -24,7 +24,7 @@ class ChildDefaults(ParentDefaults):
         pass
 
 
-class Classmethod(object):
+class Classmethod:
 
     @classmethod
     def func(cls, data):
@@ -54,7 +54,7 @@ class Builtins(dict):
         pass
 
 
-class Varargs(object):
+class Varargs:
 
     def has_kwargs(self, arg, **kwargs):
         pass
@@ -72,7 +72,7 @@ class VarargsChild(Varargs):
         "Addition of kwargs does not violate LSP, but first argument's name has changed."
 
 
-class Super(object):
+class Super:
     def __init__(self):
         pass
 
@@ -108,7 +108,7 @@ class Sub(Super):
         pass
 
 
-class Staticmethod(object):
+class Staticmethod:
 
     @staticmethod
     def func(data):
@@ -122,7 +122,7 @@ class StaticmethodChild(Staticmethod):
         return data
 
 
-class Property(object):
+class Property:
 
     @property
     def close(self):
@@ -141,27 +141,35 @@ class PropertySetter(Property):
 
 class StaticmethodChild2(Staticmethod):
 
-    def func(self, data):
+    def func(self, data):  # [arguments-differ]
         super().func(data)
 
 
-class SuperClass(object):
+class SuperClass:
 
     @staticmethod
     def impl(arg1, arg2, **kwargs):
         return arg1 + arg2
 
+    def should_have_been_decorated_as_static(arg1, arg2):  # pylint: disable=no-self-argument
+        return arg1 + arg2
+
 
 class MyClass(SuperClass):
 
-    def impl(self, *args, **kwargs):
+    @staticmethod
+    def impl(*args, **kwargs):
         """
         Acceptable use of vararg in subclass because it does not violate LSP.
         """
         super().impl(*args, **kwargs)
 
+    @staticmethod
+    def should_have_been_decorated_as_static(arg1, arg2):
+        return arg1 + arg2
 
-class FirstHasArgs(object):
+
+class FirstHasArgs:
 
     def test(self, *args):
         pass
@@ -173,7 +181,7 @@ class SecondChangesArgs(FirstHasArgs):
         pass
 
 
-class Positional(object):
+class Positional:
 
     def test(self, first, second):
         pass
@@ -187,7 +195,7 @@ class PositionalChild(Positional):
         """
         super().test(args[0], args[1])
 
-class Mixed(object):
+class Mixed:
 
     def mixed(self, first, second, *, third, fourth):
         pass
@@ -211,7 +219,7 @@ class MixedChild2(Mixed):
         super().mixed(first, *args, third, **kwargs)
 
 
-class HasSpecialMethod(object):
+class HasSpecialMethod:
 
     def __getitem__(self, key):
         return key
@@ -224,7 +232,7 @@ class OverridesSpecialMethod(HasSpecialMethod):
         return cheie + 1
 
 
-class ParentClass(object):
+class ParentClass:
 
     def meth(self, arg, arg1):
         raise NotImplementedError
@@ -243,6 +251,7 @@ class ChildClass(ParentClass):
 
 import typing  # pylint: disable=wrong-import-position
 from typing import Dict  # pylint: disable=wrong-import-position
+
 
 class ParentT1:
     def func(self, user_input: Dict[str, int]) -> None:
@@ -318,3 +327,34 @@ class Foo2(AbstractFoo):
 
     def kwonly_6(self, first, *args, **kwargs):  # valid override
         "One positional with the rest variadics to pass through parent params"
+
+
+# Adding arguments with default values to a child class is valid
+# See:
+# https://github.com/PyCQA/pylint/issues/1556
+# https://github.com/PyCQA/pylint/issues/5338
+
+
+class BaseClass:
+    def method(self, arg: str):
+        print(self, arg)
+
+
+class DerivedClassWithAnnotation(BaseClass):
+    def method(self, arg: str, param1: int = 42, *, param2: int = 42):
+        print(arg, param1, param2)
+
+
+class DerivedClassWithoutAnnotation(BaseClass):
+    def method(self, arg, param1=42, *, param2=42):
+        print(arg, param1, param2)
+
+
+class AClass:
+    def method(self, *, arg1):
+        print(self)
+
+
+class ClassWithNewNonDefaultKeywordOnly(AClass):
+    def method(self, *, arg2, arg1=None):  # [arguments-differ]
+        ...

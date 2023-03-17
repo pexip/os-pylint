@@ -1,12 +1,15 @@
 # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
-from typing import List
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
+
+from __future__ import annotations
 
 import astroid
-from astroid import nodes
+from astroid import bases, nodes
 
-from pylint import checkers, interfaces
+from pylint import checkers
 from pylint.checkers import utils
+from pylint.interfaces import HIGH, INFERENCE
 
 
 class ImplicitBooleanessChecker(checkers.BaseChecker):
@@ -48,9 +51,6 @@ class ImplicitBooleanessChecker(checkers.BaseChecker):
     * comparison such as variable != empty_literal:
     """
 
-    __implements__ = (interfaces.IAstroidChecker,)
-
-    # configuration section name
     name = "refactoring"
     msgs = {
         "C1802": (
@@ -64,18 +64,17 @@ class ImplicitBooleanessChecker(checkers.BaseChecker):
             {"old_names": [("C1801", "len-as-condition")]},
         ),
         "C1803": (
-            "'%s' can be simplified to '%s' as an empty sequence is falsey",
+            "'%s' can be simplified to '%s' as an empty %s is falsey",
             "use-implicit-booleaness-not-comparison",
             "Used when Pylint detects that collection literal comparison is being "
-            "used to check for emptiness; Use implicit booleaness instead"
+            "used to check for emptiness; Use implicit booleaness instead "
             "of a collection classes; empty collections are considered as false",
         ),
     }
 
-    priority = -2
     options = ()
 
-    @utils.check_messages("use-implicit-booleaness-not-len")
+    @utils.only_required_for_messages("use-implicit-booleaness-not-len")
     def visit_call(self, node: nodes.Call) -> None:
         # a len(S) call is used inside a test condition
         # could be if, while, assert or if expression statement
@@ -100,21 +99,29 @@ class ImplicitBooleanessChecker(checkers.BaseChecker):
         )
         if isinstance(len_arg, generator_or_comprehension):
             # The node is a generator or comprehension as in len([x for x in ...])
-            self.add_message("use-implicit-booleaness-not-len", node=node)
+            self.add_message(
+                "use-implicit-booleaness-not-len",
+                node=node,
+                confidence=HIGH,
+            )
             return
         try:
             instance = next(len_arg.infer())
         except astroid.InferenceError:
             # Probably undefined-variable, abort check
             return
-        mother_classes = self.base_classes_of_node(instance)
+        mother_classes = self.base_names_of_instance(instance)
         affected_by_pep8 = any(
             t in mother_classes for t in ("str", "tuple", "list", "set")
         )
         if "range" in mother_classes or (
             affected_by_pep8 and not self.instance_has_bool(instance)
         ):
-            self.add_message("use-implicit-booleaness-not-len", node=node)
+            self.add_message(
+                "use-implicit-booleaness-not-len",
+                node=node,
+                confidence=INFERENCE,
+            )
 
     @staticmethod
     def instance_has_bool(class_def: nodes.ClassDef) -> bool:
@@ -125,31 +132,33 @@ class ImplicitBooleanessChecker(checkers.BaseChecker):
             ...
         return False
 
-    @utils.check_messages("use-implicit-booleaness-not-len")
+    @utils.only_required_for_messages("use-implicit-booleaness-not-len")
     def visit_unaryop(self, node: nodes.UnaryOp) -> None:
-        """`not len(S)` must become `not S` regardless if the parent block
-        is a test condition or something else (boolean expression)
-        e.g. `if not len(S):`"""
+        """`not len(S)` must become `not S` regardless if the parent block is a test
+        condition or something else (boolean expression) e.g. `if not len(S):`.
+        """
         if (
             isinstance(node, nodes.UnaryOp)
             and node.op == "not"
             and utils.is_call_of_name(node.operand, "len")
         ):
-            self.add_message("use-implicit-booleaness-not-len", node=node)
+            self.add_message(
+                "use-implicit-booleaness-not-len", node=node, confidence=HIGH
+            )
 
-    @utils.check_messages("use-implicit-booleaness-not-comparison")
+    @utils.only_required_for_messages("use-implicit-booleaness-not-comparison")
     def visit_compare(self, node: nodes.Compare) -> None:
         self._check_use_implicit_booleaness_not_comparison(node)
 
     def _check_use_implicit_booleaness_not_comparison(
         self, node: nodes.Compare
     ) -> None:
-        """Check for left side and right side of the node for empty literals"""
+        """Check for left side and right side of the node for empty literals."""
         is_left_empty_literal = utils.is_base_container(
             node.left
         ) or utils.is_empty_dict_literal(node.left)
 
-        # Check both left hand side and right hand side for literals
+        # Check both left-hand side and right-hand side for literals
         for operator, comparator in node.ops:
             is_right_empty_literal = utils.is_base_container(
                 comparator
@@ -164,7 +173,7 @@ class ImplicitBooleanessChecker(checkers.BaseChecker):
                 target_instance = utils.safe_infer(target_node)
                 if target_instance is None:
                     continue
-                mother_classes = self.base_classes_of_node(target_instance)
+                mother_classes = self.base_names_of_instance(target_instance)
                 is_base_comprehension_type = any(
                     t in mother_classes for t in ("tuple", "list", "dict", "set")
                 )
@@ -178,39 +187,49 @@ class ImplicitBooleanessChecker(checkers.BaseChecker):
 
                 # No need to check for operator when visiting compare node
                 if operator in {"==", "!=", ">=", ">", "<=", "<"}:
-                    collection_literal = "{}"
-                    if isinstance(literal_node, nodes.List):
-                        collection_literal = "[]"
-                    if isinstance(literal_node, nodes.Tuple):
-                        collection_literal = "()"
-
-                    instance_name = "x"
-                    if isinstance(target_node, nodes.Call) and target_node.func:
-                        instance_name = f"{target_node.func.as_string()}(...)"
-                    elif isinstance(target_node, (nodes.Attribute, nodes.Name)):
-                        instance_name = target_node.as_string()
-
-                    original_comparison = (
-                        f"{instance_name} {operator} {collection_literal}"
-                    )
-                    suggestion = (
-                        f"{instance_name}"
-                        if operator == "!="
-                        else f"not {instance_name}"
-                    )
                     self.add_message(
                         "use-implicit-booleaness-not-comparison",
-                        args=(
-                            original_comparison,
-                            suggestion,
+                        args=self._implicit_booleaness_message_args(
+                            literal_node, operator, target_node
                         ),
                         node=node,
+                        confidence=HIGH,
                     )
 
+    def _get_node_description(self, node: nodes.NodeNG) -> str:
+        return {
+            nodes.List: "list",
+            nodes.Tuple: "tuple",
+            nodes.Dict: "dict",
+            nodes.Const: "str",
+        }.get(type(node), "iterable")
+
+    def _implicit_booleaness_message_args(
+        self, literal_node: nodes.NodeNG, operator: str, target_node: nodes.NodeNG
+    ) -> tuple[str, str, str]:
+        """Helper to get the right message for "use-implicit-booleaness-not-comparison"."""
+        description = self._get_node_description(literal_node)
+        collection_literal = {
+            "list": "[]",
+            "tuple": "()",
+            "dict": "{}",
+        }.get(description, "iterable")
+        instance_name = "x"
+        if isinstance(target_node, nodes.Call) and target_node.func:
+            instance_name = f"{target_node.func.as_string()}(...)"
+        elif isinstance(target_node, (nodes.Attribute, nodes.Name)):
+            instance_name = target_node.as_string()
+        original_comparison = f"{instance_name} {operator} {collection_literal}"
+        suggestion = f"{instance_name}" if operator == "!=" else f"not {instance_name}"
+        return original_comparison, suggestion, description
+
     @staticmethod
-    def base_classes_of_node(instance: nodes.ClassDef) -> List[str]:
-        """Return all the classes names that a ClassDef inherit from including 'object'."""
-        try:
-            return [instance.name] + [x.name for x in instance.ancestors()]
-        except TypeError:
-            return [instance.name]
+    def base_names_of_instance(node: bases.Uninferable | bases.Instance) -> list[str]:
+        """Return all names inherited by a class instance or those returned by a
+        function.
+
+        The inherited names include 'object'.
+        """
+        if isinstance(node, bases.Instance):
+            return [node.name] + [x.name for x in node.ancestors()]
+        return []

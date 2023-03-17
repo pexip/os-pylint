@@ -1,56 +1,47 @@
-# Copyright (c) 2006-2010, 2013-2014 LOGILAB S.A. (Paris, FRANCE) <contact@logilab.fr>
-# Copyright (c) 2012 FELD Boris <lothiraldan@gmail.com>
-# Copyright (c) 2013-2014 Google, Inc.
-# Copyright (c) 2014-2020 Claudiu Popa <pcmanticore@gmail.com>
-# Copyright (c) 2014 Michal Nowikowski <godfryd@gmail.com>
-# Copyright (c) 2014 Arun Persaud <arun@nubati.net>
-# Copyright (c) 2015 Ionel Cristian Maries <contact@ionelmc.ro>
-# Copyright (c) 2016 Derek Gustafson <degustaf@gmail.com>
-# Copyright (c) 2017 Michka Popoff <michkapopoff@gmail.com>
-# Copyright (c) 2019-2021 Pierre Sassoulas <pierre.sassoulas@gmail.com>
-# Copyright (c) 2019 Hugo van Kemenade <hugovk@users.noreply.github.com>
-# Copyright (c) 2019 Ashley Whetter <ashley@awhetter.co.uk>
-# Copyright (c) 2020 hippo91 <guillaume.peillex@gmail.com>
-# Copyright (c) 2020 Anthony Sottile <asottile@umich.edu>
-# Copyright (c) 2021 Daniël van Noord <13665637+DanielNoord@users.noreply.github.com>
-# Copyright (c) 2021 Marc Mueller <30130371+cdce8p@users.noreply.github.com>
-
 # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
 
-"""functional/non regression tests for pylint"""
+"""Functional/non regression tests for pylint."""
+
+from __future__ import annotations
 
 import re
 import sys
 from os.path import abspath, dirname, join
-from typing import List, Optional, Tuple
 
 import pytest
 
 from pylint.testutils import UPDATE_FILE, UPDATE_OPTION, _get_tests_info, linter
+from pylint.testutils.reporter_for_tests import GenericTestReporter
+from pylint.testutils.utils import _test_cwd
 
-INPUT_DIR = join(dirname(abspath(__file__)), "input")
-MSG_DIR = join(dirname(abspath(__file__)), "messages")
+TESTS_DIR = dirname(abspath(__file__))
+INPUT_DIR = join(TESTS_DIR, "input")
+MSG_DIR = join(TESTS_DIR, "messages")
 
 
 FILTER_RGX = None
 INFO_TEST_RGX = re.compile(r"^func_i\d\d\d\d$")
 
 
-def exception_str(self, ex) -> str:  # pylint: disable=unused-argument
-    """function used to replace default __str__ method of exception instances
-    This function is not typed because it is legacy code"""
-    return f"in {ex.file}\n:: {', '.join(ex.args)}"
+def exception_str(
+    self: Exception, ex: Exception  # pylint: disable=unused-argument
+) -> str:
+    """Function used to replace default __str__ method of exception instances
+    This function is not typed because it is legacy code
+    """
+    return f"in {ex.file}\n:: {', '.join(ex.args)}"  # type: ignore[attr-defined] # Defined in the caller
 
 
 class LintTestUsingModule:
-    INPUT_DIR: Optional[str] = None
+    INPUT_DIR: str | None = None
     DEFAULT_PACKAGE = "input"
     package = DEFAULT_PACKAGE
     linter = linter
-    module: Optional[str] = None
-    depends: Optional[List[Tuple[str, str]]] = None
-    output: Optional[str] = None
+    module: str | None = None
+    depends: list[tuple[str, str]] | None = None
+    output: str | None = None
 
     def _test_functionality(self) -> None:
         if self.module:
@@ -59,7 +50,11 @@ class LintTestUsingModule:
             tocheck += [
                 self.package + f".{name.replace('.py', '')}" for name, _ in self.depends
             ]
-        self._test(tocheck)
+        # given that TESTS_DIR could be treated as a namespace package
+        # when under the current directory, cd to it so that "tests." is not
+        # prepended to module names in the output of cyclic-import
+        with _test_cwd(TESTS_DIR):
+            self._test(tocheck)
 
     def _check_result(self, got: str) -> None:
         error_msg = (
@@ -69,7 +64,7 @@ class LintTestUsingModule:
         )
         assert self._get_expected() == got, error_msg
 
-    def _test(self, tocheck: List[str]) -> None:
+    def _test(self, tocheck: list[str]) -> None:
         if self.module and INFO_TEST_RGX.match(self.module):
             self.linter.enable("I")
         else:
@@ -78,10 +73,13 @@ class LintTestUsingModule:
             self.linter.check(tocheck)
         except Exception as ex:
             print(f"Exception: {ex} in {tocheck}:: {'‚ '.join(ex.args)}")
-            ex.file = tocheck  # type: ignore[attr-defined] # This is legacy code we're trying to remove, not worth it to type correctly
+            # This is legacy code we're trying to remove, not worth it to type correctly
+            ex.file = tocheck  # type: ignore[attr-defined]
             print(ex)
-            ex.__str__ = exception_str  # type: ignore[assignment] # This is legacy code we're trying to remove, impossible to type correctly
+            # This is legacy code we're trying to remove, not worth it to type correctly
+            ex.__str__ = exception_str  # type: ignore[assignment]
             raise
+        assert isinstance(self.linter.reporter, GenericTestReporter)
         self._check_result(self.linter.reporter.finalize())
 
     def _has_output(self) -> bool:
@@ -98,7 +96,7 @@ class LintTestUsingModule:
 
 
 class LintTestUpdate(LintTestUsingModule):
-    def _check_result(self, got):
+    def _check_result(self, got: str) -> None:
         if not self._has_output():
             return
         try:
@@ -106,16 +104,20 @@ class LintTestUpdate(LintTestUsingModule):
         except OSError:
             expected = ""
         if got != expected:
-            with open(self.output, "w", encoding="utf-8") as f:
+            with open(self.output or "", "w", encoding="utf-8") as f:
                 f.write(got)
 
 
-def gen_tests(filter_rgx):
+def gen_tests(
+    filter_rgx: str | re.Pattern[str] | None,
+) -> list[tuple[str, str, list[tuple[str, str]]]]:
     if filter_rgx:
         is_to_run = re.compile(filter_rgx).search
     else:
-        is_to_run = lambda x: 1  # noqa: E731 We're going to throw all this anyway
-    tests = []
+        is_to_run = (
+            lambda x: 1  # type: ignore[assignment,misc] # pylint: disable=unnecessary-lambda-assignment
+        )  # noqa: E731 We're going to throw all this anyway
+    tests: list[tuple[str, str, list[tuple[str, str]]]] = []
     for module_file, messages_file in _get_tests_info(INPUT_DIR, MSG_DIR, "func_", ""):
         if not is_to_run(module_file) or module_file.endswith((".pyc", "$py.class")):
             continue
@@ -138,23 +140,24 @@ TEST_WITH_EXPECTED_DEPRECATION = ["func_excess_escapes.py"]
     gen_tests(FILTER_RGX),
     ids=[o[0] for o in gen_tests(FILTER_RGX)],
 )
-def test_functionality(module_file, messages_file, dependencies, recwarn):
+def test_functionality(
+    module_file: str,
+    messages_file: str,
+    dependencies: list[tuple[str, str]],
+    recwarn: pytest.WarningsRecorder,
+) -> None:
     __test_functionality(module_file, messages_file, dependencies)
-    warning = None
-    try:
-        # Catch <unknown>:x: DeprecationWarning: invalid escape sequence
-        # so it's not shown during tests
-        warning = recwarn.pop()
-    except AssertionError:
-        pass
-    if warning is not None:
+    if recwarn.list:
         if module_file in TEST_WITH_EXPECTED_DEPRECATION and sys.version_info.minor > 5:
-            assert issubclass(warning.category, DeprecationWarning)
-            assert "invalid escape sequence" in str(warning.message)
+            assert any(
+                "invalid escape sequence" in str(i.message)
+                for i in recwarn.list
+                if issubclass(i.category, DeprecationWarning)
+            )
 
 
 def __test_functionality(
-    module_file: str, messages_file: str, dependencies: List[Tuple[str, str]]
+    module_file: str, messages_file: str, dependencies: list[tuple[str, str]]
 ) -> None:
     lint_test = LintTestUpdate() if UPDATE_FILE.exists() else LintTestUsingModule()
     lint_test.module = module_file.replace(".py", "")
