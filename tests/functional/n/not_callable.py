@@ -1,4 +1,4 @@
-# pylint: disable=missing-docstring,no-self-use,too-few-public-methods,wrong-import-position,useless-object-inheritance,use-dict-literal
+# pylint: disable=missing-docstring,too-few-public-methods,wrong-import-position,use-dict-literal
 # pylint: disable=wrong-import-order, undefined-variable
 
 REVISION = None
@@ -10,10 +10,10 @@ def correct():
 
 REVISION = correct()
 
-class Correct(object):
+class Correct:
     """callable object"""
 
-class MetaCorrect(object):
+class MetaCorrect:
     """callable object"""
     def __call__(self):
         return self
@@ -37,7 +37,7 @@ INCORRECT = INT() # [not-callable]
 class MyProperty(property):
     """ test subclasses """
 
-class PropertyTest(object):
+class PropertyTest:
     """ class """
 
     def __init__(self):
@@ -69,7 +69,7 @@ PROP.custom() # [not-callable]
 
 # Safe from not-callable when using properties.
 
-class SafeProperty(object):
+class SafeProperty:
     @property
     def static(self):
         return staticmethod
@@ -98,7 +98,7 @@ class SafeProperty(object):
 
     @property
     def instance(self):
-        class Empty(object):
+        class Empty:
             def __call__(self):
                 return 42
         return Empty()
@@ -127,7 +127,7 @@ class UnknownBaseCallable(missing.Blah):
 UnknownBaseCallable()()
 
 # Regression test for #4426
-# If property is inferrable we shouldn't double emit the message
+# If property is inferable we shouldn't double emit the message
 # See: https://github.com/PyCQA/pylint/issues/4426
 class ClassWithProperty:
     @property
@@ -136,12 +136,24 @@ class ClassWithProperty:
 
 CLASS_WITH_PROP = ClassWithProperty().value()  # [not-callable]
 
-# Test typing.Namedtuple not callable
+# Test typing.Namedtuple is callable
 # See: https://github.com/PyCQA/pylint/issues/1295
 import typing
 
 Named = typing.NamedTuple("Named", [("foo", int), ("bar", int)])
 named = Named(1, 2)
+
+
+# NamedTuple is callable, even if it aliased to a attribute
+# See https://github.com/PyCQA/pylint/issues/1730
+class TestNamedTuple:
+    def __init__(self, field: str) -> None:
+        self.my_tuple = typing.NamedTuple("Tuple", [(field, int)])
+        self.item: self.my_tuple
+
+    def set_item(self, item: int) -> None:
+        self.item = self.my_tuple(item)
+
 
 # Test descriptor call
 def func():
@@ -188,3 +200,46 @@ def get_number(arg):
 
 
 get_number(10)()  # [not-callable]
+
+class Klass:
+    def __init__(self):
+        self._x = None
+
+    @property
+    def myproperty(self):
+        if self._x is None:
+            self._x = lambda: None
+        return self._x
+
+myobject = Klass()
+myobject.myproperty()
+
+class Klass2:
+    @property
+    def something(self):
+        if __file__.startswith('s'):
+            return str
+
+        return 'abcd'
+
+obj2 = Klass2()
+obj2.something()
+
+
+# Regression test for https://github.com/PyCQA/pylint/issues/7109
+instance_or_cls = MyClass  # pylint:disable=invalid-name
+instance_or_cls = MyClass()
+if not isinstance(instance_or_cls, MyClass):
+    new = MyClass.__new__(instance_or_cls)
+    new()
+
+
+# Regression test for https://github.com/PyCQA/pylint/issues/5113.
+# Do not emit `not-callable`.
+ATTRIBUTES = {
+    'DOMAIN': ("domain", str),
+    'IMAGE': ("image", bytes),
+}
+
+for key, (name, validate) in ATTRIBUTES.items():
+    name = validate(1)

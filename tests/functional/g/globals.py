@@ -1,12 +1,14 @@
 """Warnings about global statements and usage of global variables."""
-# pylint: disable=invalid-name, redefined-outer-name, missing-function-docstring, import-outside-toplevel
-from __future__ import print_function
+# pylint: disable=invalid-name, redefined-outer-name, missing-function-docstring, missing-class-docstring, import-outside-toplevel, too-few-public-methods
 
 global CSTE  # [global-at-module-level]
 print(CSTE)  # [undefined-variable]
 
 CONSTANT = 1
 def FUNC():
+    pass
+
+class CLASS:
     pass
 
 def fix_contant(value):
@@ -29,15 +31,28 @@ def define_constant():
 
 
 def global_with_import():
-    """should only warn for global-statement"""
+    """should only warn for global-statement when using `Import` node"""
     global sys  # [global-statement]
-    import sys  # pylint: disable=import-outside-toplevel
+    import sys
+
+
+def global_with_import_from():
+    """should only warn for global-statement when using `ImportFrom` node"""
+    global namedtuple  # [global-statement]
+    from collections import namedtuple
 
 
 def global_no_assign():
     """Not assigning anything to the global makes 'global' superfluous"""
     global CONSTANT  # [global-variable-not-assigned]
     print(CONSTANT)
+
+
+def global_del():
+    """Deleting the global name prevents `global-variable-not-assigned`"""
+    global CONSTANT  # [global-statement]
+    print(CONSTANT)
+    del CONSTANT
 
 
 def global_operator_assign():
@@ -66,8 +81,12 @@ def override_func():
 
     FUNC()
 
-def func():
-    """Overriding a global with an import should only throw a global statement error"""
-    global sys  # [global-statement]
 
-    import sys
+def override_class():
+    """Overriding a class should only throw a global statement error"""
+    global CLASS  # [global-statement]
+
+    class CLASS():
+        pass
+
+    CLASS()

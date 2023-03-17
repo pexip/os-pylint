@@ -1,6 +1,6 @@
 """Verify if call to function or method inside tests are missing parentheses."""
-# pylint: disable=using-constant-test, missing-docstring, useless-object-inheritance
-# pylint: disable=invalid-name, expression-not-assigned
+# pylint: disable=using-constant-test, missing-docstring
+# pylint: disable=invalid-name, expression-not-assigned, unnecessary-lambda-assignment
 
 import collections
 
@@ -12,7 +12,7 @@ def nonbool_function():
     return 42
 
 
-class Class(object):
+class Class:
 
     @staticmethod
     def bool_method():

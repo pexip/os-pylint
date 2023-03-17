@@ -1,13 +1,20 @@
+# Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+# For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
+
+from __future__ import annotations
+
 import sys
-from typing import List, Optional, Set, Tuple, Type, Union, cast
+from typing import TYPE_CHECKING, Tuple, Type, cast
 
 from astroid import nodes
 
 from pylint.checkers import BaseChecker, utils
-from pylint.checkers.utils import check_messages, safe_infer
-from pylint.interfaces import IAstroidChecker
-from pylint.lint import PyLinter
-from pylint.utils.utils import get_global_option
+from pylint.checkers.utils import only_required_for_messages, safe_infer
+from pylint.interfaces import INFERENCE
+
+if TYPE_CHECKING:
+    from pylint.lint import PyLinter
 
 if sys.version_info >= (3, 10):
     from typing import TypeGuard
@@ -26,15 +33,12 @@ class CodeStyleChecker(BaseChecker):
        i.e. detect a common issue or improve performance
        => it should probably be part of the core checker classes
     2. Is it something that would improve code consistency,
-       maybe because it's slightly better with regards to performance
+       maybe because it's slightly better with regard to performance
        and therefore preferred => this is the right place
     3. Everything else should go into another extension
     """
 
-    __implements__ = (IAstroidChecker,)
-
     name = "code_style"
-    priority = -1
     msgs = {
         "R6101": (
             "Consider using namedtuple or dataclass for dictionary values",
@@ -55,12 +59,23 @@ class CodeStyleChecker(BaseChecker):
             "both can be combined by using an assignment expression ``:=``. "
             "Requires Python 3.8 and ``py-version >= 3.8``.",
         ),
+        "R6104": (
+            "Use '%s' to do an augmented assign directly",
+            "consider-using-augmented-assign",
+            "Emitted when an assignment is referring to the object that it is assigning "
+            "to. This can be changed to be an augmented assign.\n"
+            "Disabled by default!",
+            {
+                "default_enabled": False,
+            },
+        ),
     }
     options = (
         (
             "max-line-length-suggestions",
             {
                 "type": "int",
+                "default": 0,
                 "metavar": "<int>",
                 "help": (
                     "Max line length for which to sill emit suggestions. "
@@ -72,33 +87,29 @@ class CodeStyleChecker(BaseChecker):
         ),
     )
 
-    def __init__(self, linter: PyLinter) -> None:
-        """Initialize checker instance."""
-        super().__init__(linter=linter)
-
     def open(self) -> None:
-        py_version = get_global_option(self, "py-version")
+        py_version = self.linter.config.py_version
         self._py38_plus = py_version >= (3, 8)
         self._max_length: int = (
-            self.config.max_line_length_suggestions
-            or get_global_option(self, "max-line-length")
+            self.linter.config.max_line_length_suggestions
+            or self.linter.config.max_line_length
         )
 
-    @check_messages("consider-using-namedtuple-or-dataclass")
+    @only_required_for_messages("consider-using-namedtuple-or-dataclass")
     def visit_dict(self, node: nodes.Dict) -> None:
         self._check_dict_consider_namedtuple_dataclass(node)
 
-    @check_messages("consider-using-tuple")
+    @only_required_for_messages("consider-using-tuple")
     def visit_for(self, node: nodes.For) -> None:
         if isinstance(node.iter, nodes.List):
             self.add_message("consider-using-tuple", node=node.iter)
 
-    @check_messages("consider-using-tuple")
+    @only_required_for_messages("consider-using-tuple")
     def visit_comprehension(self, node: nodes.Comprehension) -> None:
         if isinstance(node.iter, nodes.List):
             self.add_message("consider-using-tuple", node=node.iter)
 
-    @check_messages("consider-using-assignment-expr")
+    @only_required_for_messages("consider-using-assignment-expr")
     def visit_if(self, node: nodes.If) -> None:
         if self._py38_plus:
             self._check_consider_using_assignment_expr(node)
@@ -123,7 +134,7 @@ class CodeStyleChecker(BaseChecker):
             KeyTupleT = Tuple[Type[nodes.NodeNG], str]
 
             # Makes sure all keys are 'Const' string nodes
-            keys_checked: Set[KeyTupleT] = set()
+            keys_checked: set[KeyTupleT] = set()
             for _, dict_value in node.items:
                 dict_value = cast(nodes.Dict, dict_value)
                 for key, _ in dict_value.items:
@@ -139,13 +150,13 @@ class CodeStyleChecker(BaseChecker):
                     keys_checked.add(key_tuple)
 
             # Makes sure all subdicts have at least 1 common key
-            key_tuples: List[Tuple[KeyTupleT, ...]] = []
+            key_tuples: list[tuple[KeyTupleT, ...]] = []
             for _, dict_value in node.items:
                 dict_value = cast(nodes.Dict, dict_value)
                 key_tuples.append(
                     tuple((type(key), key.as_string()) for key, _ in dict_value.items)
                 )
-            keys_intersection: Set[KeyTupleT] = set(key_tuples[0])
+            keys_intersection: set[KeyTupleT] = set(key_tuples[0])
             for sub_key_tuples in key_tuples[1:]:
                 keys_intersection.intersection_update(sub_key_tuples)
             if not keys_intersection:
@@ -164,13 +175,11 @@ class CodeStyleChecker(BaseChecker):
             if list_length == 0:
                 return
             for _, dict_value in node.items[1:]:
-                dict_value = cast(Union[nodes.List, nodes.Tuple], dict_value)
                 if len(dict_value.elts) != list_length:
                     return
 
             # Make sure at least one list entry isn't a dict
             for _, dict_value in node.items:
-                dict_value = cast(Union[nodes.List, nodes.Tuple], dict_value)
                 if all(isinstance(entry, nodes.Dict) for entry in dict_value.elts):
                     return
 
@@ -192,7 +201,7 @@ class CodeStyleChecker(BaseChecker):
         Note: Assignment expressions were added in Python 3.8
         """
         # Check if `node.test` contains a `Name` node
-        node_name: Optional[nodes.Name] = None
+        node_name: nodes.Name | None = None
         if isinstance(node.test, nodes.Name):
             node_name = node.test
         elif (
@@ -216,7 +225,6 @@ class CodeStyleChecker(BaseChecker):
         if CodeStyleChecker._check_prev_sibling_to_if_stmt(
             prev_sibling, node_name.name
         ):
-
             # Check if match statement would be a better fit.
             # I.e. multiple ifs that test the same name.
             if CodeStyleChecker._check_ignore_assignment_expr_suggestion(
@@ -247,9 +255,10 @@ class CodeStyleChecker(BaseChecker):
 
     @staticmethod
     def _check_prev_sibling_to_if_stmt(
-        prev_sibling: Optional[nodes.NodeNG], name: Optional[str]
-    ) -> TypeGuard[Union[nodes.Assign, nodes.AnnAssign]]:
+        prev_sibling: nodes.NodeNG | None, name: str | None
+    ) -> TypeGuard[nodes.Assign | nodes.AnnAssign]:
         """Check if previous sibling is an assignment with the same name.
+
         Ignore statements which span multiple lines.
         """
         if prev_sibling is None or prev_sibling.tolineno - prev_sibling.fromlineno != 0:
@@ -272,15 +281,15 @@ class CodeStyleChecker(BaseChecker):
 
     @staticmethod
     def _check_ignore_assignment_expr_suggestion(
-        node: nodes.If, name: Optional[str]
+        node: nodes.If, name: str | None
     ) -> bool:
-        """Return True if suggestion for assignment expr should be ignore.
+        """Return True if suggestion for assignment expr should be ignored.
 
         E.g., in cases where a match statement would be a better fit
         (multiple conditions).
         """
         if isinstance(node.test, nodes.Compare):
-            next_if_node: Optional[nodes.If] = None
+            next_if_node: nodes.If | None = None
             next_sibling = node.next_sibling()
             if len(node.orelse) == 1 and isinstance(node.orelse[0], nodes.If):
                 # elif block
@@ -301,6 +310,19 @@ class CodeStyleChecker(BaseChecker):
             ):
                 return True
         return False
+
+    @only_required_for_messages("consider-using-augmented-assign")
+    def visit_assign(self, node: nodes.Assign) -> None:
+        is_aug, op = utils.is_augmented_assign(node)
+        if is_aug:
+            self.add_message(
+                "consider-using-augmented-assign",
+                args=f"{op}=",
+                node=node,
+                line=node.lineno,
+                col_offset=node.col_offset,
+                confidence=INFERENCE,
+            )
 
 
 def register(linter: PyLinter) -> None:

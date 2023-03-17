@@ -1,6 +1,7 @@
 """https://www.logilab.net/elo/ticket/18862"""
-from __future__ import print_function
-__revision__ = 1
+# pylint: disable=unnecessary-lambda-assignment
+
+
 def function():
     """hop"""
     ggg = lambda: xxx

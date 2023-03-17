@@ -1,8 +1,8 @@
-# pylint: disable=missing-docstring,too-few-public-methods,useless-object-inheritance
+# pylint: disable=missing-docstring,too-few-public-methods
 """#3291"""
-from __future__ import print_function
 
-class Myarray(object):
+
+class Myarray:
     def __init__(self, array):
         self.array = array
 
@@ -18,4 +18,4 @@ def randint(maximum):
 
     return int(5)
 
-print(randint(1).astype()) # we don't wan't an error for astype access
+print(randint(1).astype()) # we don't want an error for astype access

@@ -1,41 +1,10 @@
-# Copyright (c) 2006-2014 LOGILAB S.A. (Paris, FRANCE) <contact@logilab.fr>
-# Copyright (c) 2014-2020 Claudiu Popa <pcmanticore@gmail.com>
-# Copyright (c) 2014 Vlad Temian <vladtemian@gmail.com>
-# Copyright (c) 2014 Google, Inc.
-# Copyright (c) 2014 Arun Persaud <arun@nubati.net>
-# Copyright (c) 2015 Ionel Cristian Maries <contact@ionelmc.ro>
-# Copyright (c) 2016 Derek Gustafson <degustaf@gmail.com>
-# Copyright (c) 2016 Moises Lopez <moylop260@vauxoo.com>
-# Copyright (c) 2017, 2019-2021 Pierre Sassoulas <pierre.sassoulas@gmail.com>
-# Copyright (c) 2017, 2021 Ville Skyttä <ville.skytta@iki.fi>
-# Copyright (c) 2017, 2020 hippo91 <guillaume.peillex@gmail.com>
-# Copyright (c) 2017, 2019 Thomas Hisch <t.hisch@gmail.com>
-# Copyright (c) 2017 Daniel Miller <millerdev@gmail.com>
-# Copyright (c) 2017 Bryce Guinta <bryce.paul.guinta@gmail.com>
-# Copyright (c) 2018 Sushobhit <31987769+sushobhit27@users.noreply.github.com>
-# Copyright (c) 2018 Jason Owen <jason.a.owen@gmail.com>
-# Copyright (c) 2018 Jace Browning <jacebrowning@gmail.com>
-# Copyright (c) 2018 Reverb C <reverbc@users.noreply.github.com>
-# Copyright (c) 2019 Hugues <hugues.bruant@affirm.com>
-# Copyright (c) 2019 Hugo van Kemenade <hugovk@users.noreply.github.com>
-# Copyright (c) 2019 Ashley Whetter <ashley@awhetter.co.uk>
-# Copyright (c) 2020 Frank Harrison <frank@doublethefish.com>
-# Copyright (c) 2020 Matěj Grabovský <mgrabovs@redhat.com>
-# Copyright (c) 2020 Pieter Engelbrecht <pengelbrecht@rems2.com>
-# Copyright (c) 2020 Clément Pit-Claudel <cpitclaudel@users.noreply.github.com>
-# Copyright (c) 2020 Anthony Sottile <asottile@umich.edu>
-# Copyright (c) 2021 Daniël van Noord <13665637+DanielNoord@users.noreply.github.com>
-# Copyright (c) 2021 Mark Bell <mark00bell@googlemail.com>
-# Copyright (c) 2021 Marc Mueller <30130371+cdce8p@users.noreply.github.com>
-# Copyright (c) 2021 Dr. Nick <das-intensity@users.noreply.github.com>
-# Copyright (c) 2021 Andreas Finkler <andi.finkler@gmail.com>
-# Copyright (c) 2021 chohner <mail@chohner.com>
-# Copyright (c) 2021 Louis Sautier <sautier.louis@gmail.com>
-
 # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
 
 # pylint: disable=too-many-public-methods
+
+from __future__ import annotations
 
 import configparser
 import contextlib
@@ -45,27 +14,41 @@ import platform
 import re
 import subprocess
 import sys
+import tempfile
 import textwrap
 import warnings
+from collections.abc import Iterator
 from copy import copy
-from io import StringIO
+from io import BytesIO, StringIO
 from os.path import abspath, dirname, join
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generator, Iterator, List, Optional, TextIO
+from typing import TYPE_CHECKING, Any, TextIO
 from unittest import mock
 from unittest.mock import patch
 
 import pytest
-from py._path.local import LocalPath  # type: ignore[import]
 
 from pylint import extensions, modify_sys_path
 from pylint.constants import MAIN_CHECKER_NAME, MSG_TYPES_STATUS
-from pylint.lint import Run
 from pylint.lint.pylinter import PyLinter
 from pylint.message import Message
-from pylint.reporters import JSONReporter
-from pylint.reporters.text import BaseReporter, ColorizedTextReporter, TextReporter
+from pylint.reporters import BaseReporter, JSONReporter
+from pylint.reporters.text import ColorizedTextReporter, TextReporter
+from pylint.testutils._run import _add_rcfile_default_pylintrc
+from pylint.testutils._run import _Run as Run
+from pylint.testutils.utils import (
+    _patch_streams,
+    _test_cwd,
+    _test_environ_pythonpath,
+    _test_sys_path,
+)
 from pylint.utils import utils
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+
 
 if TYPE_CHECKING:
     from pylint.reporters.ureports.nodes import Section
@@ -78,17 +61,7 @@ UNNECESSARY_LAMBDA = join(
 
 
 @contextlib.contextmanager
-def _patch_streams(out: TextIO) -> Iterator:
-    sys.stderr = sys.stdout = out
-    try:
-        yield
-    finally:
-        sys.stderr = sys.__stderr__
-        sys.stdout = sys.__stdout__
-
-
-@contextlib.contextmanager
-def _configure_lc_ctype(lc_ctype: str) -> Iterator:
+def _configure_lc_ctype(lc_ctype: str) -> Iterator[None]:
     lc_ctype_env = "LC_CTYPE"
     original_lctype = os.environ.get(lc_ctype_env)
     os.environ[lc_ctype_env] = lc_ctype
@@ -101,9 +74,9 @@ def _configure_lc_ctype(lc_ctype: str) -> Iterator:
 
 
 class MultiReporter(BaseReporter):
-    def __init__(self, reporters: List[BaseReporter]) -> None:
+    def __init__(self, reporters: list[BaseReporter]) -> None:
         # pylint: disable=super-init-not-called
-        # We don't call it because there is an attribute "linter" that is set inside the base class
+        # We don't call it because there is an attribute "linter" that is set inside the base class,
         # and we have another setter here using yet undefined attribute.
         # I don't think fixing the init order in a test class used once is worth it.
         self._reporters = reporters
@@ -117,15 +90,15 @@ class MultiReporter(BaseReporter):
         for rep in self._reporters:
             rep.handle_message(msg)
 
-    def _display(self, layout: "Section") -> None:
+    def _display(self, layout: Section) -> None:
         pass
 
     @property
     def out(self) -> TextIO:  # type: ignore[override]
         return self._reporters[0].out
 
-    @property  # type: ignore[override]
-    def linter(self) -> PyLinter:  # type: ignore[override]
+    @property
+    def linter(self) -> PyLinter:
         return self._linter
 
     @linter.setter
@@ -138,13 +111,14 @@ class MultiReporter(BaseReporter):
 class TestRunTC:
     def _runtest(
         self,
-        args: List[str],
+        args: list[str],
         reporter: Any = None,
-        out: Optional[StringIO] = None,
-        code: Optional[int] = None,
+        out: StringIO | None = None,
+        code: int | None = None,
     ) -> None:
         if out is None:
             out = StringIO()
+        args = _add_rcfile_default_pylintrc(args)
         pylint_code = self._run_pylint(args, reporter=reporter, out=out)
         if reporter:
             output = reporter.out.getvalue()
@@ -158,14 +132,14 @@ class TestRunTC:
         assert pylint_code == code, msg
 
     @staticmethod
-    def _run_pylint(args: List[str], out: TextIO, reporter: Any = None) -> int:
-        args = args + ["--persistent=no"]
+    def _run_pylint(args: list[str], out: TextIO, reporter: Any = None) -> int:
+        args = _add_rcfile_default_pylintrc(args + ["--persistent=no"])
         with _patch_streams(out):
             with pytest.raises(SystemExit) as cm:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     Run(args, reporter=reporter)
-            return cm.value.code
+            return int(cm.value.code)
 
     @staticmethod
     def _clean_paths(output: str) -> str:
@@ -173,21 +147,27 @@ class TestRunTC:
         output = re.sub(CLEAN_PATH, "", output, flags=re.MULTILINE)
         return output.replace("\\", "/")
 
-    def _test_output(self, args: List[str], expected_output: str) -> None:
+    def _test_output(
+        self, args: list[str], expected_output: str, unexpected_output: str = ""
+    ) -> None:
         out = StringIO()
+        args = _add_rcfile_default_pylintrc(args)
         self._run_pylint(args, out=out)
         actual_output = self._clean_paths(out.getvalue())
         expected_output = self._clean_paths(expected_output)
         assert expected_output.strip() in actual_output.strip()
 
+        if unexpected_output:
+            assert unexpected_output.strip() not in actual_output.strip()
+
     def _test_output_file(
-        self, args: List[str], filename: LocalPath, expected_output: str
+        self, args: list[str], filename: Path, expected_output: str
     ) -> None:
-        """
-        Run Pylint with the ``output`` option set (must be included in
+        """Run Pylint with the ``output`` option set (must be included in
         the ``args`` passed to this method!) and check the file content afterwards.
         """
         out = StringIO()
+        args = _add_rcfile_default_pylintrc(args)
         self._run_pylint(args, out=out)
         cmdline_output = out.getvalue()
         file_output = self._clean_paths(Path(filename).read_text(encoding="utf-8"))
@@ -198,8 +178,10 @@ class TestRunTC:
         assert expected_output.strip() in file_output.strip()
 
     def test_pkginfo(self) -> None:
-        """Make pylint check itself."""
-        self._runtest(["pylint.__pkginfo__"], reporter=TextReporter(StringIO()), code=0)
+        """Make pylint check 'pylint.__pkginfo__.py'."""
+        # Disable invalid-name because of invalid argument names
+        args = ["pylint.__pkginfo__", "--disable=invalid-name"]
+        self._runtest(args, reporter=TextReporter(StringIO()), code=0)
 
     def test_all(self) -> None:
         """Make pylint check itself."""
@@ -225,57 +207,14 @@ class TestRunTC:
             ["--exit-zero", join(HERE, "regrtest_data", "syntax_error.py")], code=0
         )
 
-    def test_generate_config_option(self) -> None:
-        self._runtest(["--generate-rcfile"], code=0)
-
-    def test_generate_config_option_order(self) -> None:
-        out1 = StringIO()
-        out2 = StringIO()
-        self._runtest(["--generate-rcfile"], code=0, out=out1)
-        self._runtest(["--generate-rcfile"], code=0, out=out2)
-        output1 = out1.getvalue()
-        output2 = out2.getvalue()
-        assert output1 == output2
-
-    def test_generate_config_disable_symbolic_names(self) -> None:
-        # Test that --generate-rcfile puts symbolic names in the --disable
-        # option.
-
-        out = StringIO()
-        self._run_pylint(["--generate-rcfile", "--rcfile="], out=out)
-
-        output = out.getvalue()
-        # Get rid of the pesky messages that pylint emits if the
-        # configuration file is not found.
-        pattern = fr"\[{MAIN_CHECKER_NAME.upper()}"
-        master = re.search(pattern, output)
-        assert master is not None, f"{pattern} not found in {output}"
-        out = StringIO(output[master.start() :])
-        parser = configparser.RawConfigParser()
-        parser.read_file(out)
-        messages = utils._splitstrip(parser.get("MESSAGES CONTROL", "disable"))
-        assert "suppressed-message" in messages
-
-    def test_generate_rcfile_no_obsolete_methods(self) -> None:
-        out = StringIO()
-        self._run_pylint(["--generate-rcfile"], out=out)
-        output = out.getvalue()
-        assert "profile" not in output
-
     def test_nonexistent_config_file(self) -> None:
         self._runtest(["--rcfile=/tmp/this_file_does_not_exist"], code=32)
-
-    def test_help_message_option(self) -> None:
-        self._runtest(["--help-msg", "W0101"], code=0)
-
-    def test_error_help_message_option(self) -> None:
-        self._runtest(["--help-msg", "WX101"], code=0)
 
     def test_error_missing_arguments(self) -> None:
         self._runtest([], code=32)
 
     def test_no_out_encoding(self) -> None:
-        """test redirection of stdout with non ascii characters"""
+        """Test redirection of stdout with non ascii characters."""
         # This test reproduces bug #48066 ; it happens when stdout is redirected
         # through '>' : the sys.stdout.encoding becomes then None, and if the
         # output contains non ascii, pylint will crash
@@ -306,8 +245,11 @@ class TestRunTC:
     def test_parallel_execution_missing_arguments(self) -> None:
         self._runtest(["-j 2", "not_here", "not_here_too"], code=1)
 
+    # TODO: PY3.7: Turn off abbreviations in ArgumentsManager after 3.7 support has been dropped
+    # argparse changed behaviour with abbreviations on/off in 3.8+ so we can't
+    @pytest.mark.xfail
     def test_abbreviations_are_not_supported(self) -> None:
-        expected = "no such option: --load-plugin"
+        expected = "No module named --load-plugin"
         self._test_output([".", "--load-plugin"], expected_output=expected)
 
     def test_enable_all_works(self) -> None:
@@ -354,6 +296,39 @@ class TestRunTC:
             actual_output = actual_output[actual_output.find("\n") :]
         assert self._clean_paths(expected_output.strip()) == actual_output.strip()
 
+    def test_type_annotation_names(self) -> None:
+        """Test resetting the `_type_annotation_names` list to `[]` when leaving a module.
+
+        An import inside `module_a`, which is used as a type annotation in `module_a`, should not prevent
+        emitting the `unused-import` message when the same import occurs in `module_b` & is unused.
+        See: https://github.com/PyCQA/pylint/issues/4150
+        """
+        module1 = join(
+            HERE, "regrtest_data", "imported_module_in_typehint", "module_a.py"
+        )
+
+        module2 = join(
+            HERE, "regrtest_data", "imported_module_in_typehint", "module_b.py"
+        )
+        expected_output = textwrap.dedent(
+            f"""
+        ************* Module module_b
+        {module2}:1:0: W0611: Unused import uuid (unused-import)
+        """
+        )
+        args = [
+            module1,
+            module2,
+            "--disable=all",
+            "--enable=unused-import",
+            "-rn",
+            "-sn",
+        ]
+        out = StringIO()
+        self._run_pylint(args, out=out)
+        actual_output = self._clean_paths(out.getvalue().strip())
+        assert self._clean_paths(expected_output.strip()) in actual_output.strip()
+
     def test_import_itself_not_accounted_for_relative_imports(self) -> None:
         expected = "Your code has been rated at 10.00/10"
         package = join(HERE, "regrtest_data", "dummy")
@@ -362,7 +337,7 @@ class TestRunTC:
         )
 
     def test_reject_empty_indent_strings(self) -> None:
-        expected = "indent string can't be empty"
+        expected = "Option cannot be an empty string"
         module = join(HERE, "data", "clientmodule_test.py")
         self._test_output([module, "--indent-string="], expected_output=expected)
 
@@ -471,11 +446,8 @@ class TestRunTC:
 
     def test_bom_marker(self) -> None:
         path = join(HERE, "regrtest_data", "meta.py")
-        config_path = join(HERE, "regrtest_data", ".pylintrc")
         expected = "Your code has been rated at 10.00/10"
-        self._test_output(
-            [path, f"--rcfile={config_path}", "-rn"], expected_output=expected
-        )
+        self._test_output([path, "-rn"], expected_output=expected)
 
     def test_pylintrc_plugin_duplicate_options(self) -> None:
         dummy_plugin_path = join(HERE, "regrtest_data", "dummy_plugin")
@@ -491,7 +463,9 @@ class TestRunTC:
         self._test_output(
             [
                 f"--rcfile={config_path}",
-                "--help-msg=dummy-message-01,dummy-message-02",
+                "--help-msg",
+                "dummy-message-01",
+                "dummy-message-02",
             ],
             expected_output=expected,
         )
@@ -535,7 +509,7 @@ class TestRunTC:
             self._test_output([module, "-E"], expected_output=expected_output)
 
     @pytest.mark.skipif(sys.platform == "win32", reason="only occurs on *nix")
-    def test_parseable_file_path(self):
+    def test_parseable_file_path(self) -> None:
         file_name = "test_target.py"
         fake_path = HERE + os.getcwd()
         module = join(fake_path, file_name)
@@ -561,7 +535,7 @@ class TestRunTC:
             ("mymodule.py", "mymodule", "mymodule.py"),
         ],
     )
-    def test_stdin(self, input_path, module, expected_path):
+    def test_stdin(self, input_path: str, module: str, expected_path: str) -> None:
         expected_output = f"""************* Module {module}
 {expected_path}:1:0: W0611: Unused import os (unused-import)
 
@@ -580,8 +554,8 @@ class TestRunTC:
         self._runtest(["--from-stdin"], code=32)
 
     @pytest.mark.parametrize("write_bpy_to_disk", [False, True])
-    def test_relative_imports(self, write_bpy_to_disk, tmpdir):
-        a = tmpdir.join("a")
+    def test_relative_imports(self, write_bpy_to_disk: bool, tmp_path: Path) -> None:
+        a = tmp_path / "a"
 
         b_code = textwrap.dedent(
             """
@@ -601,13 +575,13 @@ class TestRunTC:
         )
 
         a.mkdir()
-        a.join("__init__.py").write("")
+        (a / "__init__.py").write_text("")
         if write_bpy_to_disk:
-            a.join("b.py").write(b_code)
-        a.join("c.py").write(c_code)
+            (a / "b.py").write_text(b_code)
+        (a / "c.py").write_text(c_code)
 
-        with tmpdir.as_cwd():
-            # why don't we start pylint in a subprocess?
+        with _test_cwd(tmp_path):
+            # why don't we start pylint in a sub-process?
             expected = (
                 "************* Module a.b\n"
                 "a/b.py:3:0: E0401: Unable to import 'a.d' (import-error)\n\n"
@@ -620,8 +594,7 @@ class TestRunTC:
                     expected_output=expected,
                 )
 
-            # this code needs to work w/ and w/o a file named a/b.py on the
-            # harddisk.
+            # this code needs to work w/ and w/o a file named a/b.py on the hard disk.
             with mock.patch("pylint.lint.pylinter._read_stdin", return_value=b_code):
                 self._test_output(
                     [
@@ -633,12 +606,9 @@ class TestRunTC:
                     expected_output=expected,
                 )
 
-    def test_stdin_syntaxerror(self) -> None:
-        expected_output = (
-            "************* Module a\n"
-            "a.py:1:4: E0001: invalid syntax (<unknown>, line 1) (syntax-error)"
-        )
-
+    def test_stdin_syntax_error(self) -> None:
+        expected_output = """************* Module a
+a.py:1:4: E0001: Parsing failed: 'invalid syntax (<unknown>, line 1)' (syntax-error)"""
         with mock.patch(
             "pylint.lint.pylinter._read_stdin", return_value="for\n"
         ) as mock_stdin:
@@ -649,7 +619,7 @@ class TestRunTC:
             assert mock_stdin.call_count == 1
 
     def test_version(self) -> None:
-        def check(lines: List[str]) -> None:
+        def check(lines: list[str]) -> None:
             assert lines[0].startswith("pylint ")
             assert lines[1].startswith("astroid ")
             assert lines[2].startswith("Python ")
@@ -718,11 +688,15 @@ class TestRunTC:
             ],
             code=0,
         )
+        # Need the old evaluation formula to test a negative score
+        # failing below a negative --fail-under threshold
         self._runtest(
             [
                 "--fail-under",
                 "-9",
                 "--enable=all",
+                "--evaluation",
+                "0 if fatal else 10.0 - ((float(5 * error + warning + refactor + convention) / statement) * 10)",
                 join(HERE, "regrtest_data", "fail_under_minus10.py"),
             ],
             code=22,
@@ -732,6 +706,8 @@ class TestRunTC:
                 "--fail-under",
                 "-5",
                 "--enable=all",
+                "--evaluation",
+                "0 if fatal else 10.0 - ((float(5 * error + warning + refactor + convention) / statement) * 10)",
                 join(HERE, "regrtest_data", "fail_under_minus10.py"),
             ],
             code=22,
@@ -752,14 +728,14 @@ class TestRunTC:
             (-9, "missing-function-docstring", "fail_under_minus10.py", 22),
             (-5, "missing-function-docstring", "fail_under_minus10.py", 22),
             # --fail-under should guide whether error code as missing-function-docstring is not hit
-            (-10, "broad-except", "fail_under_plus7_5.py", 0),
-            (6, "broad-except", "fail_under_plus7_5.py", 0),
-            (7.5, "broad-except", "fail_under_plus7_5.py", 0),
-            (7.6, "broad-except", "fail_under_plus7_5.py", 16),
-            (-11, "broad-except", "fail_under_minus10.py", 0),
-            (-10, "broad-except", "fail_under_minus10.py", 0),
-            (-9, "broad-except", "fail_under_minus10.py", 22),
-            (-5, "broad-except", "fail_under_minus10.py", 22),
+            (-10, "broad-exception-caught", "fail_under_plus7_5.py", 0),
+            (6, "broad-exception-caught", "fail_under_plus7_5.py", 0),
+            (7.5, "broad-exception-caught", "fail_under_plus7_5.py", 0),
+            (7.6, "broad-exception-caught", "fail_under_plus7_5.py", 16),
+            (-11, "broad-exception-caught", "fail_under_minus10.py", 0),
+            (-10, "broad-exception-caught", "fail_under_minus10.py", 0),
+            (-9, "broad-exception-caught", "fail_under_minus10.py", 22),
+            (-5, "broad-exception-caught", "fail_under_minus10.py", 22),
             # Enable by message id
             (-10, "C0116", "fail_under_plus7_5.py", 16),
             # Enable by category
@@ -769,7 +745,7 @@ class TestRunTC:
             (-10, "C0115", "fail_under_plus7_5.py", 0),
         ],
     )
-    def test_fail_on(self, fu_score, fo_msgs, fname, out):
+    def test_fail_on(self, fu_score: int, fo_msgs: str, fname: str, out: int) -> None:
         self._runtest(
             [
                 "--fail-under",
@@ -777,6 +753,9 @@ class TestRunTC:
                 f"--fail-on={fo_msgs}",
                 "--enable=all",
                 join(HERE, "regrtest_data", fname),
+                # Use the old form of the evaluation that can go negative
+                "--evaluation",
+                "0 if fatal else 10.0 - ((float(5 * error + warning + refactor + convention) / statement) * 10)",
             ],
             code=out,
         )
@@ -794,7 +773,7 @@ class TestRunTC:
             (["--fail-on=C0116", "--disable=C0116"], 16),
         ],
     )
-    def test_fail_on_edge_case(self, opts, out):
+    def test_fail_on_edge_case(self, opts: list[str], out: int) -> None:
         self._runtest(
             opts + [join(HERE, "regrtest_data", "fail_under_plus7_5.py")],
             code=out,
@@ -802,289 +781,187 @@ class TestRunTC:
 
     @staticmethod
     def test_modify_sys_path() -> None:
-        @contextlib.contextmanager
-        def test_sys_path() -> Generator[None, None, None]:
-            original_path = sys.path
-            try:
-                yield
-            finally:
-                sys.path = original_path
-
-        @contextlib.contextmanager
-        def test_environ_pythonpath(
-            new_pythonpath: Optional[str],
-        ) -> Generator[None, None, None]:
-            original_pythonpath = os.environ.get("PYTHONPATH")
-            if new_pythonpath:
-                os.environ["PYTHONPATH"] = new_pythonpath
-            elif new_pythonpath is None and original_pythonpath is not None:
-                # If new_pythonpath is None, make sure to delete PYTHONPATH if present
-                del os.environ["PYTHONPATH"]
-            try:
-                yield
-            finally:
-                if original_pythonpath:
-                    os.environ["PYTHONPATH"] = original_pythonpath
-                elif new_pythonpath is not None:
-                    # Only delete PYTHONPATH if new_pythonpath wasn't None
-                    del os.environ["PYTHONPATH"]
-
-        with test_sys_path(), patch("os.getcwd") as mock_getcwd:
-            cwd = "/tmp/pytest-of-root/pytest-0/test_do_not_import_files_from_0"
+        # pylint: disable = too-many-statements
+        cwd = "/tmp/pytest-of-root/pytest-0/test_do_not_import_files_from_0"
+        default_paths = [
+            "/usr/local/lib/python39.zip",
+            "/usr/local/lib/python3.9",
+            "/usr/local/lib/python3.9/lib-dynload",
+            "/usr/local/lib/python3.9/site-packages",
+        ]
+        with _test_sys_path(), patch("os.getcwd") as mock_getcwd:
             mock_getcwd.return_value = cwd
-            default_paths = [
-                "/usr/local/lib/python39.zip",
-                "/usr/local/lib/python3.9",
-                "/usr/local/lib/python3.9/lib-dynload",
-                "/usr/local/lib/python3.9/site-packages",
-            ]
-
-            paths = [
-                cwd,
-                *default_paths,
-            ]
+            paths = [cwd, *default_paths]
             sys.path = copy(paths)
-            with test_environ_pythonpath(None):
+            with _test_environ_pythonpath():
                 modify_sys_path()
             assert sys.path == paths[1:]
 
-            paths = [
-                cwd,
-                cwd,
-                *default_paths,
-            ]
+            paths = ["", *default_paths]
             sys.path = copy(paths)
-            with test_environ_pythonpath("."):
+            with _test_environ_pythonpath():
                 modify_sys_path()
             assert sys.path == paths[1:]
 
-            paths = [
-                cwd,
-                "/custom_pythonpath",
-                *default_paths,
-            ]
+            paths = [".", *default_paths]
             sys.path = copy(paths)
-            with test_environ_pythonpath("/custom_pythonpath"):
+            with _test_environ_pythonpath():
                 modify_sys_path()
             assert sys.path == paths[1:]
 
-            paths = [
-                cwd,
-                "/custom_pythonpath",
-                cwd,
-                *default_paths,
-            ]
+            paths = ["/do_not_remove", *default_paths]
             sys.path = copy(paths)
-            with test_environ_pythonpath("/custom_pythonpath:"):
+            with _test_environ_pythonpath():
+                modify_sys_path()
+            assert sys.path == paths
+
+            paths = [cwd, cwd, *default_paths]
+            sys.path = copy(paths)
+            with _test_environ_pythonpath("."):
+                modify_sys_path()
+            assert sys.path == paths[1:]
+
+            paths = [cwd, "/custom_pythonpath", *default_paths]
+            sys.path = copy(paths)
+            with _test_environ_pythonpath("/custom_pythonpath"):
+                modify_sys_path()
+            assert sys.path == paths[1:]
+
+            paths = [cwd, "/custom_pythonpath", cwd, *default_paths]
+            sys.path = copy(paths)
+            with _test_environ_pythonpath("/custom_pythonpath:"):
                 modify_sys_path()
             assert sys.path == [paths[1]] + paths[3:]
 
-            paths = [
-                "",
-                cwd,
-                "/custom_pythonpath",
-                *default_paths,
-            ]
+            paths = ["", cwd, "/custom_pythonpath", *default_paths]
             sys.path = copy(paths)
-            with test_environ_pythonpath(":/custom_pythonpath"):
+            with _test_environ_pythonpath(":/custom_pythonpath"):
                 modify_sys_path()
             assert sys.path == paths[2:]
 
-            paths = [
-                cwd,
-                cwd,
-                "/custom_pythonpath",
-                *default_paths,
-            ]
+            paths = [cwd, cwd, "/custom_pythonpath", *default_paths]
             sys.path = copy(paths)
-            with test_environ_pythonpath(":/custom_pythonpath:"):
+            with _test_environ_pythonpath(":/custom_pythonpath:"):
                 modify_sys_path()
             assert sys.path == paths[2:]
 
-            paths = [
-                cwd,
-                cwd,
-                *default_paths,
-            ]
+            paths = [cwd, cwd, *default_paths]
             sys.path = copy(paths)
-            with test_environ_pythonpath(":."):
+            with _test_environ_pythonpath(":."):
                 modify_sys_path()
             assert sys.path == paths[1:]
             sys.path = copy(paths)
-            with test_environ_pythonpath(f":{cwd}"):
+            with _test_environ_pythonpath(f":{cwd}"):
                 modify_sys_path()
             assert sys.path == paths[1:]
 
             sys.path = copy(paths)
-            with test_environ_pythonpath(".:"):
+            with _test_environ_pythonpath(".:"):
                 modify_sys_path()
             assert sys.path == paths[1:]
             sys.path = copy(paths)
-            with test_environ_pythonpath(f"{cwd}:"):
+            with _test_environ_pythonpath(f"{cwd}:"):
                 modify_sys_path()
             assert sys.path == paths[1:]
 
-            paths = [
-                "",
-                cwd,
-                *default_paths,
-                cwd,
-            ]
+            paths = ["", cwd, *default_paths, cwd]
             sys.path = copy(paths)
-            with test_environ_pythonpath(cwd):
+            with _test_environ_pythonpath(cwd):
                 modify_sys_path()
             assert sys.path == paths[1:]
 
     @staticmethod
-    def test_do_not_import_files_from_local_directory(tmpdir: LocalPath) -> None:
-        p_astroid = tmpdir / "astroid.py"
-        p_astroid.write("'Docstring'\nimport completely_unknown\n")
-        p_hmac = tmpdir / "hmac.py"
-        p_hmac.write("'Docstring'\nimport completely_unknown\n")
+    def test_plugin_that_imports_from_open() -> None:
+        """Test that a plugin that imports a source file from a checker open()
+        function (ala pylint_django) does not raise an exception."""
+        with _test_sys_path():
+            # Enable --load-plugins=importing_plugin
+            sys.path.append(join(HERE, "regrtest_data", "importing_plugin"))
+            with _test_cwd(join(HERE, "regrtest_data", "settings_project")):
+                Run(
+                    ["--load-plugins=importing_plugin", "models.py"],
+                    exit=False,
+                )
 
-        with tmpdir.as_cwd():
-            subprocess.check_output(
-                [
-                    sys.executable,
-                    "-m",
-                    "pylint",
-                    "astroid.py",
-                    "--disable=import-error,unused-import",
-                ],
-                cwd=str(tmpdir),
-            )
-
-        # Linting this astroid file does not import it
-        with tmpdir.as_cwd():
-            subprocess.check_output(
-                [
-                    sys.executable,
-                    "-m",
-                    "pylint",
-                    "-j2",
-                    "astroid.py",
-                    "--disable=import-error,unused-import",
-                ],
-                cwd=str(tmpdir),
-            )
-
-        # Test with multiple jobs for hmac.py for which we have a
-        # CVE against: https://github.com/PyCQA/pylint/issues/959
-        with tmpdir.as_cwd():
-            subprocess.call(
-                [
-                    sys.executable,
-                    "-m",
-                    "pylint",
-                    "-j2",
-                    "hmac.py",
-                    "--disable=import-error,unused-import",
-                ],
-                cwd=str(tmpdir),
-            )
-
-    @staticmethod
-    def test_do_not_import_files_from_local_directory_with_pythonpath(
-        tmpdir: LocalPath,
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ["--disable=import-error,unused-import"],
+            # Test with multiple jobs for 'hmac.py' for which we have a
+            # CVE against: https://github.com/PyCQA/pylint/issues/959
+            ["-j2", "--disable=import-error,unused-import"],
+        ],
+    )
+    def test_do_not_import_files_from_local_directory(
+        self, tmp_path: Path, args: list[str]
     ) -> None:
-        p_astroid = tmpdir / "astroid.py"
-        p_astroid.write("'Docstring'\nimport completely_unknown\n")
-        p_hmac = tmpdir / "hmac.py"
-        p_hmac.write("'Docstring'\nimport completely_unknown\n")
-
-        # Appending a colon to PYTHONPATH should not break path stripping
-        # https://github.com/PyCQA/pylint/issues/3636
-        with tmpdir.as_cwd():
-            orig_pythonpath = os.environ.get("PYTHONPATH")
-            os.environ["PYTHONPATH"] = f"{(orig_pythonpath or '').strip(':')}:"
-            subprocess.check_output(
-                [
-                    sys.executable,
-                    "-m",
-                    "pylint",
-                    "astroid.py",
-                    "--disable=import-error,unused-import",
-                ],
-                cwd=str(tmpdir),
-            )
-            if orig_pythonpath:
-                os.environ["PYTHONPATH"] = orig_pythonpath
-            else:
-                del os.environ["PYTHONPATH"]
+        for path in ("astroid.py", "hmac.py"):
+            file_path = tmp_path / path
+            file_path.write_text("'Docstring'\nimport completely_unknown\n")
+            pylint_call = [sys.executable, "-m", "pylint"] + args + [path]
+            with _test_cwd(tmp_path):
+                subprocess.check_output(pylint_call, cwd=str(tmp_path))
+            new_python_path = os.environ.get("PYTHONPATH", "").strip(":")
+            with _test_cwd(tmp_path), _test_environ_pythonpath(f"{new_python_path}:"):
+                # Appending a colon to PYTHONPATH should not break path stripping
+                # https://github.com/PyCQA/pylint/issues/3636
+                subprocess.check_output(pylint_call, cwd=str(tmp_path))
 
     @staticmethod
     def test_import_plugin_from_local_directory_if_pythonpath_cwd(
-        tmpdir: LocalPath,
+        tmp_path: Path,
     ) -> None:
-        p_plugin = tmpdir / "plugin.py"
-        p_plugin.write("# Some plugin content")
-
-        with tmpdir.as_cwd():
-            orig_pythonpath = os.environ.get("PYTHONPATH")
-            if sys.platform == "win32":
-                os.environ["PYTHONPATH"] = "."
-            else:
-                os.environ["PYTHONPATH"] = f"{(orig_pythonpath or '').strip(':')}:."
+        p_plugin = tmp_path / "plugin.py"
+        p_plugin.write_text("# Some plugin content")
+        if sys.platform == "win32":
+            python_path = "."
+        else:
+            python_path = f"{os.environ.get('PYTHONPATH', '').strip(':')}:."
+        with _test_cwd(tmp_path), _test_environ_pythonpath(python_path):
+            args = [sys.executable, "-m", "pylint", "--load-plugins", "plugin"]
             process = subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "pylint",
-                    "--load-plugins",
-                    "plugin",
-                ],
-                cwd=str(tmpdir),
-                stderr=subprocess.PIPE,
-                check=False,
+                args, cwd=str(tmp_path), stderr=subprocess.PIPE, check=False
             )
             assert (
                 "AttributeError: module 'plugin' has no attribute 'register'"
                 in process.stderr.decode()
             )
-            if orig_pythonpath:
-                os.environ["PYTHONPATH"] = orig_pythonpath
-            else:
-                del os.environ["PYTHONPATH"]
 
     def test_allow_import_of_files_found_in_modules_during_parallel_check(
-        self, tmpdir: LocalPath
+        self, tmp_path: Path
     ) -> None:
-        test_directory = tmpdir / "test_directory"
+        test_directory = tmp_path / "test_directory"
         test_directory.mkdir()
         spam_module = test_directory / "spam.py"
-        spam_module.write("'Empty'")
+        spam_module.write_text("'Empty'")
 
         init_module = test_directory / "__init__.py"
-        init_module.write("'Empty'")
+        init_module.write_text("'Empty'")
 
         # For multiple jobs we could not find the `spam.py` file.
-        with tmpdir.as_cwd():
-            self._runtest(
-                [
-                    "-j2",
-                    "--disable=missing-docstring, missing-final-newline",
-                    "test_directory",
-                ],
-                code=0,
-            )
+        with _test_cwd(tmp_path):
+            args = [
+                "-j2",
+                "--disable=missing-docstring, missing-final-newline",
+                "test_directory",
+            ]
+            self._runtest(args, code=0)
 
         # A single job should be fine as well
-        with tmpdir.as_cwd():
-            self._runtest(
-                [
-                    "-j1",
-                    "--disable=missing-docstring, missing-final-newline",
-                    "test_directory",
-                ],
-                code=0,
-            )
+        with _test_cwd(tmp_path):
+            args = [
+                "-j1",
+                "--disable=missing-docstring, missing-final-newline",
+                "test_directory",
+            ]
+            self._runtest(args, code=0)
 
     @staticmethod
-    def test_can_list_directories_without_dunder_init(tmpdir: LocalPath) -> None:
-        test_directory = tmpdir / "test_directory"
+    def test_can_list_directories_without_dunder_init(tmp_path: Path) -> None:
+        test_directory = tmp_path / "test_directory"
         test_directory.mkdir()
         spam_module = test_directory / "spam.py"
-        spam_module.write("'Empty'")
+        spam_module.write_text("'Empty'")
 
         subprocess.check_output(
             [
@@ -1094,22 +971,15 @@ class TestRunTC:
                 "--disable=missing-docstring, missing-final-newline",
                 "test_directory",
             ],
-            cwd=str(tmpdir),
+            cwd=str(tmp_path),
             stderr=subprocess.PIPE,
         )
 
+    @pytest.mark.needs_two_cores
     def test_jobs_score(self) -> None:
         path = join(HERE, "regrtest_data", "unused_variable.py")
         expected = "Your code has been rated at 7.50/10"
         self._test_output([path, "--jobs=2", "-ry"], expected_output=expected)
-
-    def test_duplicate_code_raw_strings(self) -> None:
-        path = join(HERE, "regrtest_data", "duplicate_data_raw_strings")
-        expected_output = "Similar lines in 2 files"
-        self._test_output(
-            [path, "--disable=all", "--enable=duplicate-code"],
-            expected_output=expected_output,
-        )
 
     def test_regression_parallel_mode_without_filepath(self) -> None:
         # Test that parallel mode properly passes filepath
@@ -1117,11 +987,11 @@ class TestRunTC:
         path = join(
             HERE, "regrtest_data", "regression_missing_init_3564", "subdirectory/"
         )
-        self._test_output([path, "-j2"], expected_output="No such file or directory")
+        self._test_output([path, "-j2"], expected_output="")
 
-    def test_output_file_valid_path(self, tmpdir: LocalPath) -> None:
+    def test_output_file_valid_path(self, tmp_path: Path) -> None:
         path = join(HERE, "regrtest_data", "unused_variable.py")
-        output_file = tmpdir / "output.txt"
+        output_file = tmp_path / "output.txt"
         expected = "Your code has been rated at 7.50/10"
         self._test_output_file(
             [path, f"--output={output_file}"],
@@ -1148,11 +1018,17 @@ class TestRunTC:
             (["--fail-on=useless-suppression", "--enable=C"], 22),
         ],
     )
-    def test_fail_on_exit_code(self, args, expected):
+    def test_fail_on_exit_code(self, args: list[str], expected: int) -> None:
         path = join(HERE, "regrtest_data", "fail_on.py")
         # We set fail-under to be something very low so that even with the warnings
         # and errors that are generated they don't affect the exit code.
-        self._runtest([path, "--fail-under=-10"] + args, code=expected)
+        self._runtest([path, "--fail-under=-10", "--disable=C"] + args, code=expected)
+
+    def test_one_module_fatal_error(self) -> None:
+        """Fatal errors in one of several modules linted still exits non-zero."""
+        valid_path = join(HERE, "conftest.py")
+        invalid_path = join(HERE, "garbagePath.py")
+        self._runtest([valid_path, invalid_path, "--disable=C"], code=1)
 
     @pytest.mark.parametrize(
         "args, expected",
@@ -1168,7 +1044,7 @@ class TestRunTC:
             (["--fail-on=useless-suppression", "--enable=C"], 1),
         ],
     )
-    def test_fail_on_info_only_exit_code(self, args, expected):
+    def test_fail_on_info_only_exit_code(self, args: list[str], expected: int) -> None:
         path = join(HERE, "regrtest_data", "fail_on_info_only.py")
         self._runtest([path] + args, code=expected)
 
@@ -1177,39 +1053,41 @@ class TestRunTC:
         [
             (
                 "text",
-                "tests/regrtest_data/unused_variable.py:4:4: W0612: Unused variable 'variable' (unused-variable)",
+                "{path}:4:4: W0612: Unused variable 'variable' (unused-variable)",
             ),
             (
                 "parseable",
-                "tests/regrtest_data/unused_variable.py:4: [W0612(unused-variable), test] Unused variable 'variable'",
+                "{path}:4: [W0612(unused-variable), test] Unused variable 'variable'",
             ),
             (
                 "msvs",
-                "tests/regrtest_data/unused_variable.py(4): [W0612(unused-variable)test] Unused variable 'variable'",
+                "{path}(4): [W0612(unused-variable)test] Unused variable 'variable'",
             ),
             (
                 "colorized",
-                "tests/regrtest_data/unused_variable.py:4:4: W0612: [35mUnused variable 'variable'[0m ([35munused-variable[0m)",
+                (
+                    "{path}:4:4: W0612: \x1B[35mUnused variable 'variable'\x1B[0m (\x1B[35munused-variable\x1B[0m)"
+                ),
             ),
             ("json", '"message": "Unused variable \'variable\'",'),
         ],
     )
     def test_output_file_can_be_combined_with_output_format_option(
-        self, tmpdir, output_format, expected_output
-    ):
+        self, tmp_path: Path, output_format: str, expected_output: str
+    ) -> None:
         path = join(HERE, "regrtest_data", "unused_variable.py")
-        output_file = tmpdir / "output.txt"
+        output_file = tmp_path / "output.txt"
         self._test_output_file(
             [path, f"--output={output_file}", f"--output-format={output_format}"],
             output_file,
-            expected_output,
+            expected_output.format(path="tests/regrtest_data/unused_variable.py"),
         )
 
     def test_output_file_can_be_combined_with_custom_reporter(
-        self, tmpdir: LocalPath
+        self, tmp_path: Path
     ) -> None:
         path = join(HERE, "regrtest_data", "unused_variable.py")
-        output_file = tmpdir / "output.txt"
+        output_file = tmp_path / "output.txt"
         # It does not really have to be a truly custom reporter.
         # It is only important that it is being passed explicitly to ``Run``.
         myreporter = TextReporter()
@@ -1220,12 +1098,12 @@ class TestRunTC:
         )
         assert output_file.exists()
 
-    def test_output_file_specified_in_rcfile(self, tmpdir: LocalPath) -> None:
-        output_file = tmpdir / "output.txt"
-        rcfile = tmpdir / "pylintrc"
+    def test_output_file_specified_in_rcfile(self, tmp_path: Path) -> None:
+        output_file = tmp_path / "output.txt"
+        rcfile = tmp_path / "pylintrc"
         rcfile_contents = textwrap.dedent(
             f"""
-        [MASTER]
+        [MAIN]
         output={output_file}
         """
         )
@@ -1239,26 +1117,11 @@ class TestRunTC:
         )
 
     @staticmethod
-    def test_enable_all_extensions() -> None:
-        """Test to see if --enable-all-extensions does indeed load all extensions"""
-        # Record all extensions
-        plugins = []
-        for filename in os.listdir(os.path.dirname(extensions.__file__)):
-            # pylint: disable=fixme
-            # TODO: Remove the check for deprecated check_docs after the extension has been removed
-            if (
-                filename.endswith(".py")
-                and not filename.startswith("_")
-                and not filename.startswith("check_docs")
-            ):
-                plugins.append(f"pylint.extensions.{filename[:-3]}")
+    def test_load_text_repoter_if_not_provided() -> None:
+        """Test if PyLinter.reporter is a TextReporter if no reporter is provided."""
+        linter = PyLinter()
 
-        # Check if they are loaded
-        runner = Run(
-            ["--enable-all-extensions", join(HERE, "regrtest_data", "empty.py")],
-            exit=False,
-        )
-        assert sorted(plugins) == sorted(runner.linter._dynamic_plugins)
+        assert isinstance(linter.reporter, TextReporter)
 
     @staticmethod
     def test_regex_paths_csv_validator() -> None:
@@ -1267,5 +1130,395 @@ class TestRunTC:
         Reported in https://github.com/PyCQA/pylint/issues/5437
         """
         with pytest.raises(SystemExit) as ex:
-            Run(["--ignore-paths", "test", join(HERE, "regrtest_data", "empty.py")])
+            args = _add_rcfile_default_pylintrc(
+                ["--ignore-paths", "test", join(HERE, "regrtest_data", "empty.py")]
+            )
+            Run(args)
         assert ex.value.code == 0
+
+    @staticmethod
+    def test_max_inferred_for_complicated_class_hierarchy() -> None:
+        """Regression test for a crash reported in https://github.com/PyCQA/pylint/issues/5679.
+
+        The class hierarchy of 'sqlalchemy' is so intricate that it becomes uninferable with
+        the standard max_inferred of 100. We used to crash when this happened.
+        """
+        with pytest.raises(SystemExit) as ex:
+            path = join(
+                HERE, "regrtest_data", "max_inferable_limit_for_classes", "main.py"
+            )
+            Run([path])
+        # Error code should not include bit-value 1 for crash
+        assert not ex.value.code % 2
+
+    def test_recursive(self) -> None:
+        """Tests if running linter over directory using --recursive=y"""
+        self._runtest(
+            [join(HERE, "regrtest_data", "directory", "subdirectory"), "--recursive=y"],
+            code=0,
+        )
+
+    @pytest.mark.parametrize("ignore_value", ["ignored_subdirectory", "failing.py"])
+    def test_ignore_recursive(self, ignore_value: str) -> None:
+        """Tests recursive run of linter ignoring directory using --ignore parameter.
+
+        Ignored directory contains files yielding lint errors. If directory is not ignored
+        test would fail due these errors.
+        """
+        directory = join(HERE, "regrtest_data", "directory")
+        self._runtest([directory, "--recursive=y", f"--ignore={ignore_value}"], code=0)
+
+    @pytest.mark.parametrize("ignore_pattern_value", ["ignored_.*", "failing.*"])
+    def test_ignore_pattern_recursive(self, ignore_pattern_value: str) -> None:
+        """Tests recursive run of linter ignoring directory using --ignore-parameter parameter.
+
+        Ignored directory contains files yielding lint errors. If directory is not ignored
+        test would fail due these errors.
+        """
+        directory = join(HERE, "regrtest_data", "directory")
+        self._runtest(
+            [directory, "--recursive=y", f"--ignore-patterns={ignore_pattern_value}"],
+            code=0,
+        )
+
+    def test_ignore_pattern_from_stdin(self) -> None:
+        """Test if linter ignores standard input if the filename matches the ignore pattern."""
+        with mock.patch("pylint.lint.pylinter._read_stdin", return_value="import os\n"):
+            self._runtest(
+                [
+                    "--from-stdin",
+                    "mymodule.py",
+                    "--disable=all",
+                    "--enable=unused-import",
+                    "--ignore-patterns=mymodule.py",
+                ],
+                code=0,
+            )
+
+    @pytest.mark.parametrize("ignore_path_value", [".*ignored.*", ".*failing.*"])
+    def test_ignore_path_recursive(self, ignore_path_value: str) -> None:
+        """Tests recursive run of linter ignoring directory using --ignore-path parameter.
+
+        Ignored directory contains files yielding lint errors. If directory is not ignored
+        test would fail due these errors.
+        """
+        directory = join(HERE, "regrtest_data", "directory")
+        self._runtest(
+            [directory, "--recursive=y", f"--ignore-paths={ignore_path_value}"], code=0
+        )
+
+    def test_recursive_current_dir(self) -> None:
+        with _test_sys_path():
+            # pytest is including directory HERE/regrtest_data to sys.path which causes
+            # astroid to believe that directory is a package.
+            sys.path = [
+                path
+                for path in sys.path
+                if not os.path.basename(path) == "regrtest_data"
+            ]
+            with _test_cwd():
+                os.chdir(join(HERE, "regrtest_data", "directory", "subdirectory"))
+                self._runtest(
+                    [".", "--recursive=y"],
+                    code=0,
+                )
+
+    def test_ignore_path_recursive_current_dir(self) -> None:
+        """Tests that path is normalized before checked that is ignored. GitHub issue #6964"""
+        with _test_sys_path():
+            # pytest is including directory HERE/regrtest_data to sys.path which causes
+            # astroid to believe that directory is a package.
+            sys.path = [
+                path
+                for path in sys.path
+                if not os.path.basename(path) == "regrtest_data"
+            ]
+            with _test_cwd():
+                os.chdir(join(HERE, "regrtest_data", "directory"))
+                self._runtest(
+                    [
+                        ".",
+                        "--recursive=y",
+                        "--ignore-paths=^ignored_subdirectory/.*",
+                    ],
+                    code=0,
+                )
+
+    def test_syntax_error_invalid_encoding(self) -> None:
+        module = join(HERE, "regrtest_data", "invalid_encoding.py")
+        expected_output = "unknown encoding"
+        self._test_output([module, "-E"], expected_output=expected_output)
+
+    @pytest.mark.parametrize(
+        "module_name,expected_output",
+        [
+            ("good.py", ""),
+            ("bad_wrong_num.py", "(syntax-error)"),
+            ("bad_missing_num.py", "(bad-file-encoding)"),
+        ],
+    )
+    def test_encoding(self, module_name: str, expected_output: str) -> None:
+        path = join(HERE, "regrtest_data", "encoding", module_name)
+        self._test_output(
+            [path], expected_output=expected_output, unexpected_output="(astroid-error)"
+        )
+
+    def test_line_too_long_useless_suppression(self) -> None:
+        """A test that demonstrates a known false positive for useless-suppression
+
+        See https://github.com/PyCQA/pylint/issues/3368
+
+        If you manage to make this test fail and remove the useless-suppression
+        warning please contact open a Pylint PR!
+        """
+        module = join(HERE, "regrtest_data", "line_too_long_no_code.py")
+        expected = textwrap.dedent(
+            f"""
+        {module}:1:0: I0011: Locally disabling line-too-long (C0301) (locally-disabled)
+        {module}:1:0: I0021: Useless suppression of 'line-too-long' (useless-suppression)
+        """
+        )
+
+        self._test_output([module, "--enable=all"], expected_output=expected)
+
+    def test_output_no_header(self) -> None:
+        module = join(HERE, "data", "clientmodule_test.py")
+        expected = "Unused variable 'local_variable'"
+        not_expected = textwrap.dedent(
+            """************* Module data.clientmodule_test"""
+        )
+
+        args = [module, "--output-format=no-header"]
+        self._test_output(
+            args, expected_output=expected, unexpected_output=not_expected
+        )
+
+    def test_no_name_in_module(self) -> None:
+        """Test that a package with both a variable name `base` and a module `base`
+        does not emit a no-name-in-module msg."""
+        module = join(HERE, "regrtest_data", "test_no_name_in_module.py")
+        unexpected = "No name 'errors' in module 'list' (no-name-in-module)"
+        self._test_output(
+            [module, "-E"], expected_output="", unexpected_output=unexpected
+        )
+
+
+class TestCallbackOptions:
+    """Test for all callback options we support."""
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "command,expected",
+        [
+            (["--list-msgs"], "Emittable messages with current interpreter:"),
+            (["--list-msgs-enabled"], "Enabled messages:"),
+            (["--list-groups"], "nonascii-checker"),
+            (["--list-conf-levels"], "Confidence(name='HIGH', description="),
+            (["--list-extensions"], "pylint.extensions.empty_comment"),
+            (["--full-documentation"], "Pylint global options and switches"),
+            (["--long-help"], "Environment variables:"),
+        ],
+    )
+    def test_output_of_callback_options(
+        command: list[str], expected: str, tmp_path: Path
+    ) -> None:
+        """Test whether certain strings are in the output of a callback command."""
+        command = _add_rcfile_default_pylintrc(command)
+        process = subprocess.run(
+            [sys.executable, "-m", "pylint"] + command,
+            capture_output=True,
+            encoding="utf-8",
+            check=False,
+            cwd=str(tmp_path),
+        )
+        assert expected in process.stdout
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "args,expected,error",
+        [
+            [["--help-msg", "W0101"], ":unreachable (W0101)", False],
+            [["--help-msg", "WX101"], "No such message id", False],
+            [["--help-msg"], "--help-msg: expected at least one argumen", True],
+            [["--help-msg", "C0102,C0103"], ":invalid-name (C0103):", False],
+        ],
+    )
+    def test_help_msg(
+        args: list[str], expected: str, error: bool, tmp_path: Path
+    ) -> None:
+        """Test the --help-msg flag."""
+        args = _add_rcfile_default_pylintrc(args)
+        process = subprocess.run(
+            [sys.executable, "-m", "pylint"] + args,
+            capture_output=True,
+            encoding="utf-8",
+            check=False,
+            cwd=str(tmp_path),
+        )
+        if error:
+            result = process.stderr
+        else:
+            result = process.stdout
+        assert expected in result
+
+    @staticmethod
+    def test_generate_rcfile(tmp_path: Path) -> None:
+        """Test the --generate-rcfile flag."""
+        args = _add_rcfile_default_pylintrc(["--generate-rcfile"])
+        process = subprocess.run(
+            [sys.executable, "-m", "pylint"] + args,
+            capture_output=True,
+            encoding="utf-8",
+            check=False,
+            cwd=str(tmp_path),
+        )
+        assert "[MAIN]" in process.stdout
+        assert "[MASTER]" not in process.stdout
+        assert "profile" not in process.stdout
+        args = _add_rcfile_default_pylintrc(["--generate-rcfile"])
+        process_two = subprocess.run(
+            [sys.executable, "-m", "pylint"] + args,
+            capture_output=True,
+            encoding="utf-8",
+            check=False,
+            cwd=str(tmp_path),
+        )
+        assert process.stdout == process_two.stdout
+
+        # Check that the generated file is valid
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as temp:
+            filename = temp.name
+            temp.write(process.stdout)
+            runner = Run(
+                [join(HERE, "regrtest_data", "empty.py"), f"--rcfile={filename}"],
+                exit=False,
+            )
+            assert not runner.linter.msg_status
+        os.remove(filename)
+
+    @staticmethod
+    def test_generate_config_disable_symbolic_names() -> None:
+        """Test that --generate-rcfile puts symbolic names in the --disable option."""
+        out = StringIO()
+        with _patch_streams(out):
+            with pytest.raises(SystemExit):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    Run(["--generate-rcfile", "--rcfile=", "--persistent=no"])
+        output = out.getvalue()
+
+        # Get rid of the pesky messages that pylint emits if the
+        # configuration file is not found.
+        pattern = rf"\[{MAIN_CHECKER_NAME.upper()}"
+        main = re.search(pattern, output)
+        assert main is not None, f"{pattern} not found in {output}"
+
+        out = StringIO(output[main.start() :])
+        parser = configparser.RawConfigParser()
+        parser.read_file(out)
+        messages = utils._splitstrip(parser.get("MESSAGES CONTROL", "disable"))
+        assert "suppressed-message" in messages
+
+    @staticmethod
+    def test_generate_toml_config(tmp_path: Path) -> None:
+        """Test the --generate-toml-config flag."""
+        args = _add_rcfile_default_pylintrc(
+            [
+                "--preferred-modules=a:b",
+                "--generate-toml-config",
+            ]
+        )
+        process = subprocess.run(
+            [sys.executable, "-m", "pylint"] + args,
+            capture_output=True,
+            encoding="utf-8",
+            check=False,
+            cwd=str(tmp_path),
+        )
+        assert "[tool.pylint.main]" in process.stdout
+        assert "[tool.pylint.master]" not in process.stdout
+        assert '"positional arguments"' not in process.stdout
+        assert '"optional arguments"' not in process.stdout
+        assert 'preferred-modules = ["a:b"]' in process.stdout
+
+        process_two = subprocess.run(
+            [sys.executable, "-m", "pylint"] + args,
+            capture_output=True,
+            encoding="utf-8",
+            check=False,
+            cwd=str(tmp_path),
+        )
+        assert process.stdout == process_two.stdout
+
+        # Check that the generated file is valid
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".toml", delete=False
+        ) as temp:
+            filename = temp.name
+            temp.write(process.stdout)
+            runner = Run(
+                [join(HERE, "regrtest_data", "empty.py"), f"--rcfile={filename}"],
+                exit=False,
+            )
+            assert not runner.linter.msg_status
+        os.remove(filename)
+
+    @staticmethod
+    def test_generate_toml_config_disable_symbolic_names() -> None:
+        """Test that --generate-toml-config puts symbolic names in the --disable option."""
+        output_stream = StringIO()
+        with _patch_streams(output_stream):
+            with pytest.raises(SystemExit):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    Run(["--generate-toml-config"])
+
+        out = output_stream.getvalue()
+        bytes_out = BytesIO(out.encode("utf-8"))
+        content = tomllib.load(bytes_out)
+        messages = content["tool"]["pylint"]["messages control"]["disable"]
+        assert "useless-suppression" in messages, out
+
+    @staticmethod
+    def test_errors_only() -> None:
+        """Test the --errors-only flag."""
+        with pytest.raises(SystemExit):
+            run = Run(["--errors-only"])
+            assert run.linter._error_mode
+
+    @staticmethod
+    def test_errors_only_functions_as_disable() -> None:
+        """--errors-only functions as a shortcut for --disable=W,C,R,I;
+        it no longer enables any messages."""
+        run = Run(
+            [str(UNNECESSARY_LAMBDA), "--disable=import-error", "--errors-only"],
+            exit=False,
+        )
+        assert not run.linter.is_message_enabled("import-error")
+
+    @staticmethod
+    def test_verbose() -> None:
+        """Test the --verbose flag."""
+        with pytest.raises(SystemExit):
+            run = Run(["--verbose"])
+            assert run.verbose
+
+        with pytest.raises(SystemExit):
+            run = Run(["--verbose=True"])
+            assert run.verbose
+
+    @staticmethod
+    def test_enable_all_extensions() -> None:
+        """Test to see if --enable-all-extensions does indeed load all extensions."""
+        # Record all extensions
+        plugins = []
+        for filename in os.listdir(os.path.dirname(extensions.__file__)):
+            if filename.endswith(".py") and not filename.startswith("_"):
+                plugins.append(f"pylint.extensions.{filename[:-3]}")
+
+        # Check if they are loaded
+        runner = Run(
+            ["--enable-all-extensions", join(HERE, "regrtest_data", "empty.py")],
+            exit=False,
+        )
+        assert sorted(plugins) == sorted(runner.linter._dynamic_plugins)

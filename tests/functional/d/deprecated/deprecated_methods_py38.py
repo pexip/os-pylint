@@ -1,12 +1,12 @@
 """ Functional tests for method deprecation. """
-# pylint: disable=missing-docstring, super-init-not-called, not-callable
+# pylint: disable=missing-docstring, super-init-not-called, not-callable, comparison-of-constants
 import base64
 import inspect
 import logging
 import nntplib
+import time
 import unittest
 import xml.etree.ElementTree
-
 
 class MyTest(unittest.TestCase):
     def test(self):
@@ -51,3 +51,7 @@ class Deprecated:  # pylint: disable=too-few-public-methods
 
 d = Deprecated()
 d.deprecated_method()  # [deprecated-method]
+
+def test(clock = time.time):
+    """time.clock is deprecated but time.time via an alias is not!"""
+    clock()

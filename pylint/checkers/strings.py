@@ -1,54 +1,36 @@
-# Copyright (c) 2009-2014 LOGILAB S.A. (Paris, FRANCE) <contact@logilab.fr>
-# Copyright (c) 2010 Daniel Harding <dharding@gmail.com>
-# Copyright (c) 2012-2014 Google, Inc.
-# Copyright (c) 2013-2020 Claudiu Popa <pcmanticore@gmail.com>
-# Copyright (c) 2014 Brett Cannon <brett@python.org>
-# Copyright (c) 2014 Arun Persaud <arun@nubati.net>
-# Copyright (c) 2015 Rene Zhang <rz99@cornell.edu>
-# Copyright (c) 2015 Ionel Cristian Maries <contact@ionelmc.ro>
-# Copyright (c) 2016, 2018 Jakub Wilk <jwilk@jwilk.net>
-# Copyright (c) 2016 Peter Dawyndt <Peter.Dawyndt@UGent.be>
-# Copyright (c) 2017 Łukasz Rogalski <rogalski.91@gmail.com>
-# Copyright (c) 2017 Ville Skyttä <ville.skytta@iki.fi>
-# Copyright (c) 2018, 2020 Anthony Sottile <asottile@umich.edu>
-# Copyright (c) 2018-2019 Lucas Cimon <lucas.cimon@gmail.com>
-# Copyright (c) 2018 Alan Chan <achan961117@gmail.com>
-# Copyright (c) 2018 Yury Gribov <tetra2005@gmail.com>
-# Copyright (c) 2018 ssolanki <sushobhitsolanki@gmail.com>
-# Copyright (c) 2018 Nick Drozd <nicholasdrozd@gmail.com>
-# Copyright (c) 2019-2021 Pierre Sassoulas <pierre.sassoulas@gmail.com>
-# Copyright (c) 2019 Wes Turner <westurner@google.com>
-# Copyright (c) 2019 Djailla <bastien.vallet@gmail.com>
-# Copyright (c) 2019 Hugo van Kemenade <hugovk@users.noreply.github.com>
-# Copyright (c) 2020 Matthew Suozzo <msuozzo@google.com>
-# Copyright (c) 2020 hippo91 <guillaume.peillex@gmail.com>
-# Copyright (c) 2020 谭九鼎 <109224573@qq.com>
-# Copyright (c) 2020 Anthony <tanant@users.noreply.github.com>
-# Copyright (c) 2021 Marc Mueller <30130371+cdce8p@users.noreply.github.com>
-# Copyright (c) 2021 Tushar Sadhwani <tushar.sadhwani000@gmail.com>
-# Copyright (c) 2021 Jaehoon Hwang <jaehoonhwang@users.noreply.github.com>
-# Copyright (c) 2021 Daniël van Noord <13665637+DanielNoord@users.noreply.github.com>
-# Copyright (c) 2021 Peter Kolbus <peter.kolbus@garmin.com>
-
-
 # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
 
-"""Checker for string formatting operations.
-"""
+"""Checker for string formatting operations."""
+
+from __future__ import annotations
 
 import collections
-import numbers
 import re
+import sys
 import tokenize
-from typing import Counter, Iterable
+from collections import Counter
+from collections.abc import Iterable, Sequence
+from typing import TYPE_CHECKING
 
 import astroid
-from astroid import nodes
+from astroid import bases, nodes
+from astroid.typing import SuccessfulInferenceResult
 
-from pylint.checkers import BaseChecker, BaseTokenChecker, utils
-from pylint.checkers.utils import check_messages
-from pylint.interfaces import IAstroidChecker, IRawChecker, ITokenChecker
+from pylint.checkers import BaseChecker, BaseRawFileChecker, BaseTokenChecker, utils
+from pylint.checkers.utils import only_required_for_messages
+from pylint.interfaces import HIGH
+from pylint.typing import MessageDefinitionTuple
+
+if TYPE_CHECKING:
+    from pylint.lint import PyLinter
+
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
+
 
 _AST_NODE_STR_TYPES = ("__builtin__.unicode", "__builtin__.str", "builtins.str")
 # Prefixes for both strings and bytes literals per
@@ -83,7 +65,9 @@ SINGLE_QUOTED_REGEX = re.compile(f"({'|'.join(_PREFIXES)})?'''")
 DOUBLE_QUOTED_REGEX = re.compile(f"({'|'.join(_PREFIXES)})?\"\"\"")
 QUOTE_DELIMITER_REGEX = re.compile(f"({'|'.join(_PREFIXES)})?(\"|')", re.DOTALL)
 
-MSGS = {  # pylint: disable=consider-using-namedtuple-or-dataclass
+MSGS: dict[
+    str, MessageDefinitionTuple
+] = {  # pylint: disable=consider-using-namedtuple-or-dataclass
     "E1300": (
         "Unsupported format character %r (%#02x) at index %d",
         "bad-format-character",
@@ -150,7 +134,7 @@ MSGS = {  # pylint: disable=consider-using-namedtuple-or-dataclass
     "E1310": (
         "Suspicious argument in %s.%s call",
         "bad-str-strip-call",
-        "The argument to a str.{l,r,}strip call contains a duplicate character, ",
+        "The argument to a str.{l,r,}strip call contains a duplicate character,",
     ),
     "W1302": (
         "Invalid format string",
@@ -223,7 +207,7 @@ OTHER_NODES = (
 )
 
 
-def get_access_path(key, parts):
+def get_access_path(key: str | Literal[0], parts: list[tuple[bool, str]]) -> str:
     """Given a list of format specifiers, returns
     the final access path (e.g. a.b.c[0][1]).
     """
@@ -236,7 +220,9 @@ def get_access_path(key, parts):
     return str(key) + "".join(path)
 
 
-def arg_matches_format_type(arg_type, format_type):
+def arg_matches_format_type(
+    arg_type: SuccessfulInferenceResult, format_type: str
+) -> bool:
     if format_type in "sr":
         # All types can be printed with %s and %r
         return True
@@ -258,12 +244,11 @@ class StringFormatChecker(BaseChecker):
     is valid and the arguments match the format string.
     """
 
-    __implements__ = (IAstroidChecker,)
     name = "string"
     msgs = MSGS
 
-    # pylint: disable=too-many-branches
-    @check_messages(
+    # pylint: disable = too-many-branches, too-many-locals, too-many-statements
+    @only_required_for_messages(
         "bad-format-character",
         "truncated-format-string",
         "mixed-format-string",
@@ -274,7 +259,6 @@ class StringFormatChecker(BaseChecker):
         "format-needs-mapping",
         "too-many-format-args",
         "too-few-format-args",
-        "bad-string-format-type",
         "format-string-without-interpolation",
     )
     def visit_binop(self, node: nodes.BinOp) -> None:
@@ -383,9 +367,21 @@ class StringFormatChecker(BaseChecker):
             elif isinstance(args, (OTHER_NODES, (nodes.Dict, nodes.DictComp))):
                 args_elts = [args]
                 num_args = 1
+            elif isinstance(args, nodes.Name):
+                inferred = utils.safe_infer(args)
+                if isinstance(inferred, nodes.Tuple):
+                    # The variable is a tuple, so we need to get the elements
+                    # from it for further inspection
+                    args_elts = inferred.elts
+                    num_args = len(args_elts)
+                elif isinstance(inferred, nodes.Const):
+                    args_elts = [inferred]
+                    num_args = 1
+                else:
+                    num_args = None
             else:
-                # The RHS of the format specifier is a name or
-                # expression.  It could be a tuple of unknown size, so
+                # The RHS of the format specifier is an expression.
+                # It could be a tuple of unknown size, so
                 # there's nothing we can check.
                 num_args = None
             if num_args is not None:
@@ -408,7 +404,7 @@ class StringFormatChecker(BaseChecker):
                             args=(arg_type.pytype(), format_type),
                         )
 
-    @check_messages("f-string-without-interpolation")
+    @only_required_for_messages("f-string-without-interpolation")
     def visit_joinedstr(self, node: nodes.JoinedStr) -> None:
         self._check_interpolation(node)
 
@@ -420,7 +416,6 @@ class StringFormatChecker(BaseChecker):
                 return
         self.add_message("f-string-without-interpolation", node=node)
 
-    @check_messages(*MSGS)
     def visit_call(self, node: nodes.Call) -> None:
         func = utils.safe_infer(node.func)
         if (
@@ -441,7 +436,9 @@ class StringFormatChecker(BaseChecker):
             elif func.name == "format":
                 self._check_new_format(node, func)
 
-    def _detect_vacuous_formatting(self, node, positional_arguments):
+    def _detect_vacuous_formatting(
+        self, node: nodes.Call, positional_arguments: list[SuccessfulInferenceResult]
+    ) -> None:
         counter = collections.Counter(
             arg.name for arg in positional_arguments if isinstance(arg, nodes.Name)
         )
@@ -452,12 +449,12 @@ class StringFormatChecker(BaseChecker):
                 "duplicate-string-formatting-argument", node=node, args=(name,)
             )
 
-    def _check_new_format(self, node, func):
+    def _check_new_format(self, node: nodes.Call, func: bases.BoundMethod) -> None:
         """Check the new string formatting."""
         # Skip format nodes which don't have an explicit string on the
         # left side of the format operation.
         # We do this because our inference engine can't properly handle
-        # redefinitions of the original string.
+        # redefinition of the original string.
         # Note that there may not be any left side at all, if the format method
         # has been assigned to another variable. See issue 351. For example:
         #
@@ -497,7 +494,7 @@ class StringFormatChecker(BaseChecker):
 
         check_args = False
         # Consider "{[0]} {[1]}" as num_args.
-        num_args += sum(1 for field in named_fields if field == "")
+        num_args += sum(1 for field in named_fields if not field)
         if named_fields:
             for field in named_fields:
                 if field and field not in named_arguments:
@@ -512,13 +509,13 @@ class StringFormatChecker(BaseChecker):
             # num_args can be 0 if manual_pos is not.
             num_args = num_args or manual_pos
             if positional_arguments or num_args:
-                empty = any(field == "" for field in named_fields)
+                empty = not all(field for field in named_fields)
                 if named_arguments or empty:
                     # Verify the required number of positional arguments
                     # only if the .format got at least one keyword argument.
                     # This means that the format strings accepts both
                     # positional and named fields and we should warn
-                    # when one of the them is missing or is extra.
+                    # when one of them is missing or is extra.
                     check_args = True
         else:
             check_args = True
@@ -536,20 +533,26 @@ class StringFormatChecker(BaseChecker):
         self._detect_vacuous_formatting(node, positional_arguments)
         self._check_new_format_specifiers(node, fields, named_arguments)
 
-    def _check_new_format_specifiers(self, node, fields, named):
-        """
-        Check attribute and index access in the format
+    # pylint: disable = too-many-statements
+    def _check_new_format_specifiers(
+        self,
+        node: nodes.Call,
+        fields: list[tuple[str, list[tuple[bool, str]]]],
+        named: dict[str, SuccessfulInferenceResult],
+    ) -> None:
+        """Check attribute and index access in the format
         string ("{0.a}" and "{0[a]}").
         """
+        key: Literal[0] | str
         for key, specifiers in fields:
             # Obtain the argument. If it can't be obtained
             # or inferred, skip this check.
-            if key == "":
+            if not key:
                 # {[0]} will have an unnamed argument, defaulting
                 # to 0. It will not be present in `named`, so use the value
                 # 0 for it.
                 key = 0
-            if isinstance(key, numbers.Number):
+            if isinstance(key, int):
                 try:
                     argname = utils.get_argument_from_call(node, key)
                 except utils.NoSuchArgumentError:
@@ -573,7 +576,7 @@ class StringFormatChecker(BaseChecker):
                 # because we can't infer its value properly.
                 continue
             previous = argument
-            parsed = []
+            parsed: list[tuple[bool, str]] = []
             for is_attribute, specifier in specifiers:
                 if previous is astroid.Uninferable:
                     break
@@ -633,10 +636,9 @@ class StringFormatChecker(BaseChecker):
                     break
 
 
-class StringConstantChecker(BaseTokenChecker):
-    """Check string literals"""
+class StringConstantChecker(BaseTokenChecker, BaseRawFileChecker):
+    """Check string literals."""
 
-    __implements__ = (IAstroidChecker, ITokenChecker, IRawChecker)
     name = "string"
     msgs = {
         "W1401": (
@@ -708,20 +710,23 @@ class StringConstantChecker(BaseTokenChecker):
     # Unicode strings.
     UNICODE_ESCAPE_CHARACTERS = "uUN"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.string_tokens = {}  # token position -> (token value, next token)
+    def __init__(self, linter: PyLinter) -> None:
+        super().__init__(linter)
+        self.string_tokens: dict[
+            tuple[int, int], tuple[str, tokenize.TokenInfo | None]
+        ] = {}
+        """Token position -> (token value, next token)."""
 
     def process_module(self, node: nodes.Module) -> None:
         self._unicode_literals = "unicode_literals" in node.future_imports
 
-    def process_tokens(self, tokens):
+    def process_tokens(self, tokens: list[tokenize.TokenInfo]) -> None:
         encoding = "ascii"
-        for i, (tok_type, token, start, _, line) in enumerate(tokens):
-            if tok_type == tokenize.ENCODING:
+        for i, (token_type, token, start, _, line) in enumerate(tokens):
+            if token_type == tokenize.ENCODING:
                 # this is always the first token processed
                 encoding = token
-            elif tok_type == tokenize.STRING:
+            elif token_type == tokenize.STRING:
                 # 'token' is the whole un-parsed token; we can look at the start
                 # of it to see whether it's a raw or unicode string etc.
                 self.process_string_token(token, start[0], start[1])
@@ -740,18 +745,22 @@ class StringConstantChecker(BaseTokenChecker):
                     start = (start[0], len(line[: start[1]].encode(encoding)))
                 self.string_tokens[start] = (str_eval(token), next_token)
 
-        if self.config.check_quote_consistency:
+        if self.linter.config.check_quote_consistency:
             self.check_for_consistent_string_delimiters(tokens)
 
-    @check_messages("implicit-str-concat")
+    @only_required_for_messages("implicit-str-concat")
+    def visit_call(self, node: nodes.Call) -> None:
+        self.check_for_concatenated_strings(node.args, "call")
+
+    @only_required_for_messages("implicit-str-concat")
     def visit_list(self, node: nodes.List) -> None:
         self.check_for_concatenated_strings(node.elts, "list")
 
-    @check_messages("implicit-str-concat")
+    @only_required_for_messages("implicit-str-concat")
     def visit_set(self, node: nodes.Set) -> None:
         self.check_for_concatenated_strings(node.elts, "set")
 
-    @check_messages("implicit-str-concat")
+    @only_required_for_messages("implicit-str-concat")
     def visit_tuple(self, node: nodes.Tuple) -> None:
         self.check_for_concatenated_strings(node.elts, "tuple")
 
@@ -793,7 +802,9 @@ class StringConstantChecker(BaseTokenChecker):
                         "inconsistent-quotes", line=start[0], args=(quote_delimiter,)
                     )
 
-    def check_for_concatenated_strings(self, elements, iterable_type):
+    def check_for_concatenated_strings(
+        self, elements: Sequence[nodes.NodeNG], iterable_type: str
+    ) -> None:
         for elt in elements:
             if not (
                 isinstance(elt, nodes.Const) and elt.pytype() in _AST_NODE_STR_TYPES
@@ -802,36 +813,38 @@ class StringConstantChecker(BaseTokenChecker):
             if elt.col_offset < 0:
                 # This can happen in case of escaped newlines
                 continue
-            if (elt.lineno, elt.col_offset) not in self.string_tokens:
+            token_index = (elt.lineno, elt.col_offset)
+            if token_index not in self.string_tokens:
                 # This may happen with Latin1 encoding
                 # cf. https://github.com/PyCQA/pylint/issues/2610
                 continue
-            matching_token, next_token = self.string_tokens[
-                (elt.lineno, elt.col_offset)
-            ]
+            matching_token, next_token = self.string_tokens[token_index]
             # We detect string concatenation: the AST Const is the
             # combination of 2 string tokens
             if matching_token != elt.value and next_token is not None:
                 if next_token.type == tokenize.STRING and (
                     next_token.start[0] == elt.lineno
-                    or self.config.check_str_concat_over_line_jumps
+                    or self.linter.config.check_str_concat_over_line_jumps
                 ):
                     self.add_message(
-                        "implicit-str-concat", line=elt.lineno, args=(iterable_type,)
+                        "implicit-str-concat",
+                        line=elt.lineno,
+                        args=(iterable_type,),
+                        confidence=HIGH,
                     )
 
-    def process_string_token(self, token, start_row, start_col):
+    def process_string_token(self, token: str, start_row: int, start_col: int) -> None:
         quote_char = None
-        index = None
-        for index, char in enumerate(token):
+        for _index, char in enumerate(token):
             if char in "'\"":
                 quote_char = char
                 break
         if quote_char is None:
             return
-
-        prefix = token[:index].lower()  # markers like u, b, r.
-        after_prefix = token[index:]
+        # pylint: disable=undefined-loop-variable
+        prefix = token[:_index].lower()  # markers like u, b, r.
+        after_prefix = token[_index:]
+        # pylint: enable=undefined-loop-variable
         # Chop off quotes
         quote_length = (
             3 if after_prefix[:3] == after_prefix[-3:] == 3 * quote_char else 1
@@ -847,15 +860,15 @@ class StringConstantChecker(BaseTokenChecker):
             )
 
     def process_non_raw_string_token(
-        self, prefix, string_body, start_row, string_start_col
-    ):
-        """check for bad escapes in a non-raw string.
+        self, prefix: str, string_body: str, start_row: int, string_start_col: int
+    ) -> None:
+        """Check for bad escapes in a non-raw string.
 
-        prefix: lowercase string of eg 'ur' string prefix markers.
+        prefix: lowercase string of string prefix markers ('ur').
         string_body: the un-parsed body of the string, not including the quote
         marks.
-        start_row: integer line number in the source.
-        string_start_col: integer col number of the string start in the source.
+        start_row: line number in the source.
+        string_start_col: col number of the string start in the source.
         """
         # Walk through the string; if we see a backslash then escape the next
         # character, and skip over it.  If we see a non-escaped character,
@@ -908,15 +921,15 @@ class StringConstantChecker(BaseTokenChecker):
             # character can never be the start of a new backslash escape.
             index += 2
 
-    @check_messages("redundant-u-string-prefix")
+    @only_required_for_messages("redundant-u-string-prefix")
     def visit_const(self, node: nodes.Const) -> None:
         if node.pytype() == "builtins.str" and not isinstance(
             node.parent, nodes.JoinedStr
         ):
             self._detect_u_string_prefix(node)
 
-    def _detect_u_string_prefix(self, node: nodes.Const):
-        """Check whether strings include a 'u' prefix like u'String'"""
+    def _detect_u_string_prefix(self, node: nodes.Const) -> None:
+        """Check whether strings include a 'u' prefix like u'String'."""
         if node.kind == "u":
             self.add_message(
                 "redundant-u-string-prefix",
@@ -925,15 +938,14 @@ class StringConstantChecker(BaseTokenChecker):
             )
 
 
-def register(linter):
-    """required method to auto register this checker"""
+def register(linter: PyLinter) -> None:
     linter.register_checker(StringFormatChecker(linter))
     linter.register_checker(StringConstantChecker(linter))
 
 
-def str_eval(token):
-    """
-    Mostly replicate `ast.literal_eval(token)` manually to avoid any performance hit.
+def str_eval(token: str) -> str:
+    """Mostly replicate `ast.literal_eval(token)` manually to avoid any performance hit.
+
     This supports f-strings, contrary to `ast.literal_eval`.
     We have to support all string literal notations:
     https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals
@@ -961,7 +973,7 @@ def _is_long_string(string_token: str) -> bool:
         string_token: The string token to be parsed.
 
     Returns:
-        A boolean representing whether or not this token matches a longstring
+        A boolean representing whether this token matches a longstring
         regex.
     """
     return bool(
@@ -973,15 +985,14 @@ def _is_long_string(string_token: str) -> bool:
 def _get_quote_delimiter(string_token: str) -> str:
     """Returns the quote character used to delimit this token string.
 
-    This function does little checking for whether the token is a well-formed
-    string.
+    This function checks whether the token is a well-formed string.
 
     Args:
         string_token: The token to be parsed.
 
     Returns:
-        A string containing solely the first quote delimiter character in the passed
-        string.
+        A string containing solely the first quote delimiter character in the
+        given string.
 
     Raises:
       ValueError: No quote delimiter characters are present.

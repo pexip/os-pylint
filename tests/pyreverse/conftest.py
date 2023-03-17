@@ -1,4 +1,10 @@
-from typing import Callable, Optional
+# Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+# For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
+
+from __future__ import annotations
+
+from collections.abc import Callable
 
 import pytest
 from astroid.nodes.scoped_nodes import Module
@@ -6,6 +12,7 @@ from astroid.nodes.scoped_nodes import Module
 from pylint.lint import fix_import_path
 from pylint.pyreverse.inspector import Project, project_from_files
 from pylint.testutils.pyreverse import PyreverseConfig
+from pylint.typing import GetProjectCallable
 
 
 @pytest.fixture()
@@ -43,12 +50,28 @@ def colorized_puml_config() -> PyreverseConfig:
     )
 
 
-@pytest.fixture(scope="session")
-def get_project() -> Callable:
-    def _get_project(module: str, name: Optional[str] = "No Name") -> Project:
-        """return an astroid project representation"""
+@pytest.fixture()
+def mmd_config() -> PyreverseConfig:
+    return PyreverseConfig(
+        output_format="mmd",
+        colorized=False,
+    )
 
-        def _astroid_wrapper(func: Callable, modname: str) -> Module:
+
+@pytest.fixture()
+def html_config() -> PyreverseConfig:
+    return PyreverseConfig(
+        output_format="html",
+        colorized=False,
+    )
+
+
+@pytest.fixture(scope="session")
+def get_project() -> GetProjectCallable:
+    def _get_project(module: str, name: str | None = "No Name") -> Project:
+        """Return an astroid project representation."""
+
+        def _astroid_wrapper(func: Callable[[str], Module], modname: str) -> Module:
             return func(modname)
 
         with fix_import_path([module]):

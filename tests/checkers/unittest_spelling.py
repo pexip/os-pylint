@@ -1,22 +1,6 @@
-# Copyright (c) 2014-2018, 2020 Claudiu Popa <pcmanticore@gmail.com>
-# Copyright (c) 2014 Michal Nowikowski <godfryd@gmail.com>
-# Copyright (c) 2015 Ionel Cristian Maries <contact@ionelmc.ro>
-# Copyright (c) 2016 Derek Gustafson <degustaf@gmail.com>
-# Copyright (c) 2017, 2020 Pedro Algarvio <pedro@algarvio.me>
-# Copyright (c) 2017 Łukasz Rogalski <rogalski.91@gmail.com>
-# Copyright (c) 2018, 2020 Anthony Sottile <asottile@umich.edu>
-# Copyright (c) 2019-2021 Pierre Sassoulas <pierre.sassoulas@gmail.com>
-# Copyright (c) 2019 Ashley Whetter <ashley@awhetter.co.uk>
-# Copyright (c) 2019 agutole <toldo_carp@hotmail.com>
-# Copyright (c) 2020 Ganden Schaffner <gschaffner@pm.me>
-# Copyright (c) 2020 hippo91 <guillaume.peillex@gmail.com>
-# Copyright (c) 2021 Jaehoon Hwang <jaehoonhwang@users.noreply.github.com>
-# Copyright (c) 2021 Daniël van Noord <13665637+DanielNoord@users.noreply.github.com>
-# Copyright (c) 2021 Marc Mueller <30130371+cdce8p@users.noreply.github.com>
-# Copyright (c) 2021 Eli Fine <ejfine@gmail.com>
-
 # Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
 # For details: https://github.com/PyCQA/pylint/blob/main/LICENSE
+# Copyright (c) https://github.com/PyCQA/pylint/blob/main/CONTRIBUTORS.txt
 
 """Unittest for the spelling checker."""
 
@@ -51,13 +35,13 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
         reason="missing python-enchant package or missing spelling dictionaries",
     )
 
-    def _get_msg_suggestions(self, word, count=4):
+    def _get_msg_suggestions(self, word: str, count: int = 4) -> str:
         suggestions = "' or '".join(self.checker.spelling_dict.suggest(word)[:count])
         return f"'{suggestions}'"
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_check_bad_coment(self):
+    def test_check_bad_coment(self) -> None:
         with self.assertAddsMessages(
             MessageTest(
                 "wrong-spelling-in-comment",
@@ -75,7 +59,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
     @set_config(max_spelling_suggestions=2)
-    def test_check_bad_coment_custom_suggestion_count(self):
+    def test_check_bad_comment_custom_suggestion_count(self) -> None:
         with self.assertAddsMessages(
             MessageTest(
                 "wrong-spelling-in-comment",
@@ -92,7 +76,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_check_bad_docstring(self):
+    def test_check_bad_docstring(self) -> None:
         stmt = astroid.extract_node('def fff():\n   """bad coment"""\n   pass')
         with self.assertAddsMessages(
             MessageTest(
@@ -123,25 +107,15 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
         ):
             self.checker.visit_classdef(stmt)
 
-    @pytest.mark.skipif(True, reason="pyenchant's tokenizer strips these")
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_invalid_docstring_characters(self):
-        stmt = astroid.extract_node('def fff():\n   """test\\x00"""\n   pass')
-        with self.assertAddsMessages(
-            MessageTest("invalid-characters-in-docstring", line=2, args=("test\x00",))
-        ):
-            self.checker.visit_functiondef(stmt)
-
-    @skip_on_missing_package_or_dict
-    @set_config(spelling_dict=spell_dict)
-    def test_skip_shebangs(self):
+    def test_skip_shebangs(self) -> None:
         self.checker.process_tokens(_tokenize_str("#!/usr/bin/env python"))
         assert not self.linter.release_messages()
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_skip_python_coding_comments(self):
+    def test_skip_python_coding_comments(self) -> None:
         self.checker.process_tokens(_tokenize_str("# -*- coding: utf-8 -*-"))
         assert not self.linter.release_messages()
         self.checker.process_tokens(_tokenize_str("# coding=utf-8"))
@@ -164,7 +138,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_skip_top_level_pylint_enable_disable_comments(self):
+    def test_skip_top_level_pylint_enable_disable_comments(self) -> None:
         self.checker.process_tokens(
             _tokenize_str("# Line 1\n Line 2\n# pylint: disable=ungrouped-imports")
         )
@@ -172,13 +146,13 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_skip_words_with_numbers(self):
+    def test_skip_words_with_numbers(self) -> None:
         self.checker.process_tokens(_tokenize_str("\n# 0ne\n# Thr33\n# Sh3ll"))
         assert not self.linter.release_messages()
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_skip_wiki_words(self):
+    def test_skip_wiki_words(self) -> None:
         stmt = astroid.extract_node(
             'class ComentAbc(object):\n   """ComentAbc with a bad coment"""\n   pass'
         )
@@ -198,7 +172,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_skip_camel_cased_words(self):
+    def test_skip_camel_cased_words(self) -> None:
         stmt = astroid.extract_node(
             'class ComentAbc(object):\n   """comentAbc with a bad coment"""\n   pass'
         )
@@ -250,7 +224,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_skip_words_with_underscores(self):
+    def test_skip_words_with_underscores(self) -> None:
         stmt = astroid.extract_node(
             'def fff(param_name):\n   """test param_name"""\n   pass'
         )
@@ -259,19 +233,19 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_skip_email_address(self):
+    def test_skip_email_address(self) -> None:
         self.checker.process_tokens(_tokenize_str("# uname@domain.tld"))
         assert not self.linter.release_messages()
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_skip_urls(self):
+    def test_skip_urls(self) -> None:
         self.checker.process_tokens(_tokenize_str("# https://github.com/rfk/pyenchant"))
         assert not self.linter.release_messages()
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_skip_sphinx_directives(self):
+    def test_skip_sphinx_directives(self) -> None:
         stmt = astroid.extract_node(
             'class ComentAbc(object):\n   """This is :class:`ComentAbc` with a bad coment"""\n   pass'
         )
@@ -291,7 +265,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_skip_sphinx_directives_2(self):
+    def test_skip_sphinx_directives_2(self) -> None:
         stmt = astroid.extract_node(
             'class ComentAbc(object):\n   """This is :py:attr:`ComentAbc` with a bad coment"""\n   pass'
         )
@@ -312,50 +286,35 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
     @pytest.mark.parametrize(
-        ",".join(
-            (
-                "misspelled_portion_of_directive",
-                "second_portion_of_directive",
-                "description",
-            )
-        ),
+        "prefix,suffix",
         (
-            ("fmt", ": on", "black directive to turn on formatting"),
-            ("fmt", ": off", "black directive to turn off formatting"),
-            ("noqa", "", "pycharm directive"),
-            ("noqa", ":", "flake8 / zimports directive"),
-            ("nosec", "", "bandit directive"),
-            ("isort", ":skip", "isort directive"),
-            ("mypy", ":", "mypy directive"),
+            pytest.param("fmt", ": on", id="black directive to turn on formatting"),
+            pytest.param("fmt", ": off", id="black directive to turn off formatting"),
+            pytest.param("noqa", "", id="pycharm directive"),
+            pytest.param("noqa", ":", id="flake8 / zimports directive"),
+            pytest.param("nosec", "", id="bandit directive"),
+            pytest.param("isort", ":skip", id="isort directive"),
+            pytest.param("mypy", ":", id="mypy top of file directive"),
         ),
     )
-    def test_skip_tool_directives_at_beginning_of_comments_but_still_raise_error_if_directive_appears_later_in_comment(  # pylint:disable=unused-argument
-        # Having the extra description parameter allows the description
-        #   to show up in the pytest output as part of the test name
-        #   when running parametrized tests.
-        self,
-        misspelled_portion_of_directive,
-        second_portion_of_directive,
-        description,
-    ):
-        full_comment = f"# {misspelled_portion_of_directive}{second_portion_of_directive} {misspelled_portion_of_directive}"
+    def test_tool_directives_handling(self, prefix: str, suffix: str) -> None:
+        """We're not raising when the directive is at the beginning of comments,
+        but we raise if a directive appears later in comment."""
+        full_comment = f"# {prefix}{suffix} {prefix}"
+        args = (
+            prefix,
+            full_comment,
+            f"  {'^' * len(prefix)}",
+            self._get_msg_suggestions(prefix),
+        )
         with self.assertAddsMessages(
-            MessageTest(
-                "wrong-spelling-in-comment",
-                line=1,
-                args=(
-                    misspelled_portion_of_directive,
-                    full_comment,
-                    f"  {'^'*len(misspelled_portion_of_directive)}",
-                    self._get_msg_suggestions(misspelled_portion_of_directive),
-                ),
-            )
+            MessageTest("wrong-spelling-in-comment", line=1, args=args)
         ):
             self.checker.process_tokens(_tokenize_str(full_comment))
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_skip_code_flanked_in_double_backticks(self):
+    def test_skip_code_flanked_in_double_backticks(self) -> None:
         full_comment = "# The function ``.qsize()`` .qsize()"
         with self.assertAddsMessages(
             MessageTest(
@@ -373,7 +332,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_skip_code_flanked_in_single_backticks(self):
+    def test_skip_code_flanked_in_single_backticks(self) -> None:
         full_comment = "# The function `.qsize()` .qsize()"
         with self.assertAddsMessages(
             MessageTest(
@@ -390,11 +349,29 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
             self.checker.process_tokens(_tokenize_str(full_comment))
 
     @skip_on_missing_package_or_dict
+    @set_config(spelling_dict=spell_dict)
+    def test_skip_mypy_ignore_directives(self) -> None:
+        full_comment = "# type: ignore[attr-defined] attr"
+        with self.assertAddsMessages(
+            MessageTest(
+                "wrong-spelling-in-comment",
+                line=1,
+                args=(
+                    "attr",
+                    full_comment,
+                    "   ^^^^",
+                    self._get_msg_suggestions("attr"),
+                ),
+            )
+        ):
+            self.checker.process_tokens(_tokenize_str(full_comment))
+
+    @skip_on_missing_package_or_dict
     @set_config(
         spelling_dict=spell_dict,
         spelling_ignore_comment_directives="newdirective:,noqa",
     )
-    def test_skip_directives_specified_in_pylintrc(self):
+    def test_skip_directives_specified_in_pylintrc(self) -> None:
         full_comment = "# newdirective: do this newdirective"
         with self.assertAddsMessages(
             MessageTest(
@@ -412,7 +389,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_handle_words_joined_by_forward_slash(self):
+    def test_handle_words_joined_by_forward_slash(self) -> None:
         stmt = astroid.extract_node(
             '''
         class ComentAbc(object):
@@ -436,7 +413,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_more_than_one_error_in_same_line_for_same_word_on_docstring(self):
+    def test_more_than_one_error_in_same_line_for_same_word_on_docstring(self) -> None:
         stmt = astroid.extract_node(
             'class ComentAbc(object):\n   """Check teh dummy comment teh"""\n   pass'
         )
@@ -466,7 +443,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_more_than_one_error_in_same_line_for_same_word_on_comment(self):
+    def test_more_than_one_error_in_same_line_for_same_word_on_comment(self) -> None:
         with self.assertAddsMessages(
             MessageTest(
                 "wrong-spelling-in-comment",
@@ -493,7 +470,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_docstring_lines_that_look_like_comments_1(self):
+    def test_docstring_lines_that_look_like_comments_1(self) -> None:
         stmt = astroid.extract_node(
             '''def f():
     """
@@ -516,7 +493,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_docstring_lines_that_look_like_comments_2(self):
+    def test_docstring_lines_that_look_like_comments_2(self) -> None:
         stmt = astroid.extract_node(
             '''def f():
     """# msitake"""'''
@@ -537,7 +514,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_docstring_lines_that_look_like_comments_3(self):
+    def test_docstring_lines_that_look_like_comments_3(self) -> None:
         stmt = astroid.extract_node(
             '''def f():
     """
@@ -560,7 +537,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_docstring_lines_that_look_like_comments_4(self):
+    def test_docstring_lines_that_look_like_comments_4(self) -> None:
         stmt = astroid.extract_node(
             '''def f():
     """
@@ -572,7 +549,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_docstring_lines_that_look_like_comments_5(self):
+    def test_docstring_lines_that_look_like_comments_5(self) -> None:
         stmt = astroid.extract_node(
             '''def f():
     """
@@ -595,7 +572,7 @@ class TestSpellingChecker(CheckerTestCase):  # pylint:disable=too-many-public-me
 
     @skip_on_missing_package_or_dict
     @set_config(spelling_dict=spell_dict)
-    def test_docstring_lines_that_look_like_comments_6(self):
+    def test_docstring_lines_that_look_like_comments_6(self) -> None:
         stmt = astroid.extract_node(
             '''def f():
     """
