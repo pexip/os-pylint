@@ -18,11 +18,11 @@ export PYBUILD_AFTER_TEST=rm -rf {dir}/.pytest_cache
 export PYBUILD_BEFORE_INSTALL=rm -rf {build_dir}/classes.dot
 
 %:
-	dh $@ --buildsystem pybuild --with python3,sphinxdoc
+	dh $@ --buildsystem pybuild --with python3
 
 override_dh_auto_build:
 	dh_auto_build
-	PATH=$(CURDIR):$$PATH $(MAKE) -C doc build-html PYTHONPATH=$(CURDIR) PYTHON=python3
+# 	PATH=$(CURDIR):$$PATH $(MAKE) -C doc build-html PYTHONPATH=$(CURDIR) PYTHON=python3
 
 override_dh_compress:
 	dh_compress -i -X.py -X.ini -X.xml -Xtest
@@ -32,7 +32,6 @@ override_dh_installexamples:
 
 override_dh_installdocs:
 	dh_installdocs -A README.rst
-	dh_installdocs -ppylint-doc doc/_build/html
 
 override_dh_missing:
 	dh_missing --fail-missing
