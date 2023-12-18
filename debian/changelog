@@ -1,3 +1,10 @@
+pylint (2.16.2-2pexip4) pexip-bookworm; urgency=medium
+
+  * Backport PR https://github.com/pylint-dev/pylint/pull/8678
+    to avoid crash when analysing deleted dictionaries.
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Mon, 18 Dec 2023 17:07:44 +0000
+
 pylint (2.16.2-2pexip3) pexip-bookworm; urgency=medium
 
   * Bookworm build for product distribution

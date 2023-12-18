@@ -1,0 +1,25 @@
+Fix from upstream: https://github.com/pylint-dev/pylint/pull/8678/files
+
+Prevents pylint crashing in certain cases when a dict is deleted after
+being returned from a call
+
+Index: os-pylint/pylint/checkers/modified_iterating_checker.py
+===================================================================
+--- os-pylint.orig/pylint/checkers/modified_iterating_checker.py
++++ os-pylint/pylint/checkers/modified_iterating_checker.py
+@@ -90,14 +90,10 @@ class ModifiedIterationChecker(checkers.
+         elif self._modified_iterating_set_cond(node, iter_obj):
+             msg_id = "modified-iterating-set"
+         if msg_id:
+-            if isinstance(iter_obj, nodes.Attribute):
+-                obj_name = iter_obj.attrname
+-            else:
+-                obj_name = iter_obj.name
+             self.add_message(
+                 msg_id,
+                 node=node,
+-                args=(obj_name,),
++                args=(iter_obj._repr_name(),),
+                 confidence=interfaces.INFERENCE,
+             )
+ 

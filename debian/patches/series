@@ -1,3 +1,4 @@
 avoid-pip.patch
 docs-no-furo.patch
 docs-disable-warnings-as-errors.patch
+pexip/backport_upstream_8678.patch
