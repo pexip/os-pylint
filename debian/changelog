@@ -1,3 +1,9 @@
+pylint (2.16.2-2+pexip24u5) pexip-bookworm; urgency=medium
+
+  * New versioning scheme
+
+ -- Mark Hymers <mark.hymers@pexip.com>  Thu, 01 Feb 2024 16:18:13 +0000
+
 pylint (2.16.2-2pexip4) pexip-bookworm; urgency=medium
 
   * Backport PR https://github.com/pylint-dev/pylint/pull/8678
